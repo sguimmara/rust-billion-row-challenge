@@ -1,4 +1,4 @@
-use std::{path::Path, fs::File};
+use std::{fs::File, path::Path};
 
 use memmap::{Mmap, MmapOptions};
 
@@ -21,12 +21,13 @@ impl Iterator for MmapIterator {
     type Item = Row;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match parse_row(&self.mmap, self.pos) {
-            Some((row, count)) => {
+        let mut row = Row::default();
+        match parse_row(&self.mmap, self.pos, &mut row) {
+            Some(count) => {
                 self.pos += count;
                 Some(row)
-            },
-            None => None
+            }
+            None => None,
         }
     }
 }

@@ -1,4 +1,8 @@
-use std::{fs::File, os::unix::fs::{FileExt, MetadataExt}, path::Path};
+use std::{
+    fs::File,
+    os::unix::fs::{FileExt, MetadataExt},
+    path::Path,
+};
 
 use super::{parse_row, Row};
 
@@ -32,9 +36,7 @@ impl FdIterator {
 
     fn fill_buffer(&mut self) -> bool {
         match self.fd.read_at(&mut self.buf, self.offset as u64) {
-            Ok(_) => {
-                return true;
-            },
+            Ok(_) => true,
             Err(_) => false,
         }
     }
@@ -50,17 +52,18 @@ impl Iterator for FdIterator {
             return None;
         }
 
-        match parse_row(&self.buf, self.buf_offset) {
-            Some((row, count)) => {
+        let mut row = Row::default();
+        match parse_row(&self.buf, self.buf_offset, &mut row) {
+            Some(count) => {
                 self.buf_offset += count;
                 self.offset += count;
-                return Some(row);
-            },
+                Some(row)
+            }
             None => {
                 self.fill_buffer();
                 self.buf_offset = 0;
-                return self.next();
-            },
+                self.next()
+            }
         }
     }
 }

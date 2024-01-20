@@ -2,8 +2,8 @@ use analyzer::Analyzer;
 use clap::Parser;
 use parser::ParseMethod;
 
-mod parser;
 mod analyzer;
+mod parser;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -19,7 +19,7 @@ struct Args {
 
     /// Don't print anything.
     #[arg(short, long)]
-    method: String
+    method: String,
 }
 
 fn main() {

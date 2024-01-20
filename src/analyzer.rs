@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::parser::{parse_csv, Row, ParseMethod};
+use crate::parser::{parse_csv, ParseMethod, Row};
 
 #[derive(Clone)]
 pub struct Station {
@@ -62,7 +62,7 @@ impl Analyzer {
                 v.sum += t;
                 v.count += 1;
             } else {
-                self.stations.insert(row.station, Entry::new(t));
+                self.stations.insert(row.station.to_string(), Entry::new(t));
             }
         }
 
@@ -74,7 +74,7 @@ impl Analyzer {
             result.push(Station::new(station, entry.min, entry.max, mean))
         }
 
-        result.sort_unstable_by_key(|x| { x.name.clone() });
+        result.sort_unstable_by_key(|x| x.name.clone());
 
         result
     }
@@ -143,7 +143,10 @@ mod test {
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer = Analyzer::new(Path::new("./data/9-rows-duplicate-stations.csv"), ParseMethod::Mmap);
+        let analyzer = Analyzer::new(
+            Path::new("./data/9-rows-duplicate-stations.csv"),
+            ParseMethod::Mmap,
+        );
 
         let results = analyzer.collect();
 
