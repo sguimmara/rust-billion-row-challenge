@@ -21,7 +21,13 @@ impl Iterator for MmapIterator {
     type Item = Row;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return parse_row(&self.mmap, &mut self.pos)
+        match parse_row(&self.mmap, self.pos) {
+            Some((row, count)) => {
+                self.pos += count;
+                Some(row)
+            },
+            None => None
+        }
     }
 }
 

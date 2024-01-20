@@ -1,29 +1,40 @@
-use std::{fs::File, os::unix::fs::FileExt, path::Path};
+use std::{fs::File, os::unix::fs::{FileExt, MetadataExt}, path::Path};
 
 use super::{parse_row, Row};
 
-const BUF_SIZE: usize = 256;
+const BUF_SIZE: usize = 16384;
 
 pub struct FdIterator {
     offset: usize,
     fd: File,
     buf: [u8; BUF_SIZE],
+    file_size: u64,
+    buf_offset: usize,
 }
 
 impl FdIterator {
     pub fn new(path: &Path) -> Self {
         let fd = File::open(path).unwrap();
-        Self {
+        let file_size = fd.metadata().unwrap().size();
+
+        let mut res = Self {
             fd,
+            file_size,
             offset: 0,
+            buf_offset: 0,
             buf: [0; BUF_SIZE],
-        }
+        };
+
+        res.fill_buffer();
+
+        res
     }
 
     fn fill_buffer(&mut self) -> bool {
-        self.buf.fill(0);
         match self.fd.read_at(&mut self.buf, self.offset as u64) {
-            Ok(_) => true,
+            Ok(_) => {
+                return true;
+            },
             Err(_) => false,
         }
     }
@@ -33,13 +44,24 @@ impl Iterator for FdIterator {
     type Item = Row;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.fill_buffer();
-        let mut row_offset = 0;
-        let result = parse_row(&self.buf, &mut row_offset);
-        if result.is_some() {
-            self.offset += row_offset;
+        // println!("{}/{}", self.offset, self.file_size);
+
+        if self.offset >= (self.file_size as usize) {
+            return None;
         }
-        result
+
+        match parse_row(&self.buf, self.buf_offset) {
+            Some((row, count)) => {
+                self.buf_offset += count;
+                self.offset += count;
+                return Some(row);
+            },
+            None => {
+                self.fill_buffer();
+                self.buf_offset = 0;
+                return self.next();
+            },
+        }
     }
 }
 
