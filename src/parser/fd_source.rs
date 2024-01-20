@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use super::{parse_row, Row};
+use super::{parse_row, Parser};
 
 const BUF_SIZE: usize = 16384;
 
@@ -35,67 +35,67 @@ impl FdIterator {
     }
 
     fn fill_buffer(&mut self) -> bool {
-        match self.fd.read_at(&mut self.buf, self.offset as u64) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        self.fd.read_at(&mut self.buf, self.offset as u64).is_ok()
     }
 }
 
-impl Iterator for FdIterator {
-    type Item = Row;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // println!("{}/{}", self.offset, self.file_size);
-
-        if self.offset >= (self.file_size as usize) {
-            return None;
-        }
-
-        let mut row = Row::default();
-        match parse_row(&self.buf, self.buf_offset, &mut row) {
-            Some(count) => {
-                self.buf_offset += count;
-                self.offset += count;
-                Some(row)
+impl Parser for FdIterator {
+    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64)) {
+        loop {
+            if self.offset >= (self.file_size as usize) {
+                break;
             }
-            None => {
-                self.fill_buffer();
-                self.buf_offset = 0;
-                self.next()
+
+            match parse_row(&self.buf, self.buf_offset, f) {
+                Some(count) => {
+                    self.buf_offset += count;
+                    self.offset += count;
+                }
+                None => {
+                    self.fill_buffer();
+                    self.buf_offset = 0;
+                }
             }
         }
     }
+
+    fn new(path: &Path) -> Self {
+        Self::new(path)
+    }
 }
+
 
 #[cfg(test)]
 mod test {
     use std::path::Path;
 
-    use crate::parser::{fd_source::FdIterator, Row};
+    use crate::parser::{Parser, test::Row, fd_source::FdIterator};
 
     #[test]
-    fn test_1_row() {
-        let mut iterator = FdIterator::new(Path::new("./data/1-row.csv"));
+    fn test_mmap_iterator() {
+        let mut parser = FdIterator::new(Path::new("./data/1-row.csv"));
 
-        let first_row = iterator.next();
+        let mut vec: Vec<Row> = Vec::with_capacity(1);
 
-        assert!(first_row.is_some());
-        if let Some(row) = first_row {
-            assert_eq!(row.temperature, 1f64);
-            assert_eq!(row.station, "foo");
-        }
+        parser.parse(&mut |name, temp| {
+            vec.push(Row::new(&String::from_utf8_lossy(name), temp))
+        });
 
-        let second_row = iterator.next();
+        assert_eq!(vec.len(), 1);
 
-        assert!(second_row.is_none());
+        assert_eq!(vec[0].temperature, 1f64);
+        assert_eq!(vec[0].station, "foo");
     }
 
     #[test]
-    fn test_3_rows() {
-        let iterator = FdIterator::new(Path::new("./data/3-rows.csv"));
+    fn test_mmap_3_rows() {
+        let mut parser = FdIterator::new(Path::new("./data/3-rows.csv"));
 
-        let rows: Vec<Row> = iterator.collect();
+        let mut rows: Vec<Row> = Vec::with_capacity(1);
+
+        parser.parse(&mut |name, temp| {
+            rows.push(Row::new(&String::from_utf8_lossy(name), temp))
+        });
 
         assert_eq!(3, rows.len());
         assert_eq!(rows[0].station, "Paris");

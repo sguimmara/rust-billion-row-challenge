@@ -1,6 +1,5 @@
 use analyzer::Analyzer;
 use clap::Parser;
-use parser::ParseMethod;
 
 mod analyzer;
 mod parser;
@@ -32,16 +31,14 @@ fn main() {
         std::process::exit(1);
     }
 
-    let method = match args.method.as_str() {
-        "mmap" => ParseMethod::Mmap,
-        "fd" => ParseMethod::Fd,
+    let results = match args.method.as_str() {
+        "mmap" => Analyzer::<parser::mmap_source::MmapIterator>::new(path).collect(),
+        "fd" => Analyzer::<parser::fd_source::FdIterator>::new(path).collect(),
         _ => {
             eprintln!("invalid method: {}", args.method);
             std::process::exit(1);
         }
     };
-
-    let results = Analyzer::new(path, method).collect();
 
     if !args.quiet {
         print!("{{");

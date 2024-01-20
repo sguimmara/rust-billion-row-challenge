@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::parser::{parse_csv, ParseMethod, Row};
+use crate::parser::Parser;
 
 #[derive(Clone)]
 pub struct Station {
@@ -39,32 +39,32 @@ impl Entry {
     }
 }
 
-pub struct Analyzer {
+pub struct Analyzer<P: Parser> {
     stations: HashMap<String, Entry>,
-    iterator: Box<dyn Iterator<Item = Row>>,
+    parser: Box<P>,
 }
 
-impl Analyzer {
-    pub fn new(path: &Path, method: ParseMethod) -> Self {
-        let iterator = parse_csv(path, method).unwrap();
+impl<P: Parser> Analyzer<P> {
+    pub fn new(path: &Path) -> Self {
+        let parser = Box::new(P::new(path));
         Self {
-            stations: HashMap::with_capacity(256),
-            iterator,
+            stations: HashMap::with_capacity(12_000), // TODO custom hasher
+            parser,
         }
     }
 
     pub fn collect(mut self) -> Vec<Station> {
-        for row in self.iterator {
-            let t = row.temperature;
-            if let Some(v) = self.stations.get_mut(&row.station) {
+        self.parser.parse(&mut |name, t| {
+            let station = String::from_utf8_lossy(name);
+            if let Some(v) = self.stations.get_mut(station.as_ref()) {
                 v.min = f64::min(v.min, t);
                 v.max = f64::max(v.max, t);
                 v.sum += t;
                 v.count += 1;
             } else {
-                self.stations.insert(row.station.to_string(), Entry::new(t));
+                self.stations.insert(station.to_string(), Entry::new(t));
             }
-        }
+        });
 
         let mut result = Vec::with_capacity(self.stations.len());
 
@@ -84,13 +84,13 @@ impl Analyzer {
 mod test {
     use std::path::Path;
 
-    use crate::parser::ParseMethod;
+    use crate::parser::mmap_source::MmapIterator;
 
     use super::Analyzer;
 
     #[test]
     fn test_1_row() {
-        let analyzer = Analyzer::new(Path::new("./data/1-row.csv"), ParseMethod::Mmap);
+        let analyzer: Analyzer<MmapIterator> = Analyzer::new(Path::new("./data/1-row.csv"));
 
         let results = analyzer.collect();
 
@@ -104,7 +104,7 @@ mod test {
 
     #[test]
     fn test_3_rows() {
-        let analyzer = Analyzer::new(Path::new("./data/3-rows.csv"), ParseMethod::Mmap);
+        let analyzer: Analyzer<MmapIterator> = Analyzer::new(Path::new("./data/3-rows.csv"));
 
         let results = analyzer.collect();
 
@@ -143,9 +143,8 @@ mod test {
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer = Analyzer::new(
+        let analyzer: Analyzer<MmapIterator> = Analyzer::new(
             Path::new("./data/9-rows-duplicate-stations.csv"),
-            ParseMethod::Mmap,
         );
 
         let results = analyzer.collect();

@@ -1,24 +1,21 @@
 use std::path::Path;
 
-use self::{fd_source::FdIterator, mmap_source::MmapIterator};
+pub mod fd_source;
+pub mod mmap_source;
 
-mod fd_source;
-mod mmap_source;
-
-#[derive(Debug, Clone, Default)]
-pub struct Row {
-    pub station: String,
-    pub temperature: f64,
+pub trait Parser {
+    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64));
+    fn new(path: &Path) -> Self;
 }
 
 const NEWLINE: u8 = 10;
 const SEMICOLON: u8 = 59;
 
-fn parse_station(buf: &[u8], offset: usize) -> Option<(String, usize)> {
-    parse_cell(buf, offset, SEMICOLON).map(|(value, bytes_read)| (value.to_string(), bytes_read))
+fn parse_station(buf: &[u8], offset: usize) -> Option<(&[u8], usize)> {
+    parse_cell(buf, offset, SEMICOLON).map(|(value, bytes_read)| (value, bytes_read))
 }
 
-fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(String, usize)> {
+fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(&[u8], usize)> {
     let start = offset;
     let mut bytes_read = 0;
     loop {
@@ -27,19 +24,19 @@ fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(String, usize)>
         }
         let c = buf[start + bytes_read];
         if c == limiter {
-            let value = String::from_utf8_lossy(&buf[start..(start + bytes_read)]);
+            let slice = &buf[start..(start + bytes_read)];
+            // let value = String::from_utf8_lossy(slice);
             bytes_read += 1;
-            return Some((value.to_string(), bytes_read));
+            return Some((slice, bytes_read));
         }
         bytes_read += 1;
     }
 }
 
-fn parse_row(buf: &[u8], offset: usize, dst: &mut Row) -> Option<usize> {
+fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f64)) -> Option<usize> {
     if let Some((station, bytes_read)) = parse_station(buf, offset) {
         if let Some((temperature, bytes_read_2)) = parse_temp(buf, offset + bytes_read) {
-            dst.station = station;
-            dst.temperature = temperature;
+            f(station, temperature);
             return Some(bytes_read + bytes_read_2);
         }
     }
@@ -48,24 +45,28 @@ fn parse_row(buf: &[u8], offset: usize, dst: &mut Row) -> Option<usize> {
 }
 
 fn parse_temp(buf: &[u8], offset: usize) -> Option<(f64, usize)> {
-    parse_cell(buf, offset, NEWLINE).map(|(value, bytes_read)| (value.parse().unwrap(), bytes_read))
-}
-
-pub enum ParseMethod {
-    Mmap,
-    Fd,
-}
-
-pub fn parse_csv(path: &Path, method: ParseMethod) -> Option<Box<dyn Iterator<Item = Row>>> {
-    match method {
-        ParseMethod::Mmap => Some(Box::new(MmapIterator::new(path))),
-        ParseMethod::Fd => Some(Box::new(FdIterator::new(path))),
-    }
+    parse_cell(buf, offset, NEWLINE)
+        .map(|(value, bytes_read)| (fast_float::parse(value).unwrap(), bytes_read))
 }
 
 #[cfg(test)]
 mod test {
-    use crate::parser::{parse_row, parse_station, parse_temp, Row};
+    use crate::parser::{parse_row, parse_station, parse_temp};
+
+    #[derive(Debug, Clone, Default)]
+    pub struct Row {
+        pub station: String,
+        pub temperature: f64,
+    }
+
+    impl Row {
+        pub fn new(station: &str, temperature: f64) -> Self {
+            Self {
+                station: station.to_owned(),
+                temperature,
+            }
+        }
+    }
 
     #[test]
     fn test_parse_station() {
@@ -74,7 +75,7 @@ mod test {
 
         assert!(result.is_some());
         if let Some((station, offset)) = result {
-            assert_eq!(station, "foo");
+            assert_eq!(station, "foo".as_bytes());
             assert_eq!(offset, 4);
         }
     }
@@ -93,40 +94,36 @@ mod test {
     fn test_parse_row() {
         let buf = "St. Petersburg;10.2\n";
 
-        let mut row = Row::default();
-        let res = parse_row(buf.as_bytes(), 0, &mut row);
+        let res = parse_row(buf.as_bytes(), 0, &mut |station, temperature| {
+            assert_eq!(temperature, 10.2f64);
+            assert_eq!(station, "St. Petersburg".as_bytes());
+        });
 
         assert!(res.is_some());
-        if let Some(count) = res {
-            assert_eq!(row.station, "St. Petersburg");
-            assert_eq!(row.temperature, 10.2f64);
-            assert_eq!(count, 20);
-        }
     }
 
     #[test]
     fn test_parse_row_multiple() {
         let buf = "St. Petersburg;10.2\nParis;44.2\n";
 
-        let mut row = Row::default();
-        let res1 = parse_row(buf.as_bytes(), 0, &mut row);
+        let mut rows: Vec<Row> = Vec::with_capacity(2);
+        let mut offset = 0;
 
-        assert!(res1.is_some());
-        if let Some(count) = res1 {
-            assert_eq!(row.station, "St. Petersburg");
-            assert_eq!(row.temperature, 10.2f64);
+        loop {
+            let res = parse_row(buf.as_bytes(), offset, &mut |station, temperature| {
+                rows.push(Row::new(&String::from_utf8_lossy(station), temperature));
+            });
 
-            let res2 = parse_row(buf.as_bytes(), count, &mut row);
-
-            assert!(res2.is_some());
-            if let Some(count2) = res2 {
-                assert_eq!(row.station, "Paris");
-                assert_eq!(row.temperature, 44.2f64);
-
-                let last = parse_row(buf.as_bytes(), count + count2, &mut row);
-
-                assert!(last.is_none());
+            if res.is_none() {
+                break;
             }
+            offset += res.unwrap();
         }
+
+        assert_eq!(rows[0].station, "St. Petersburg");
+        assert_eq!(rows[0].temperature, 10.2f64);
+
+        assert_eq!(rows[1].station, "Paris");
+        assert_eq!(rows[1].temperature, 44.2f64);
     }
 }

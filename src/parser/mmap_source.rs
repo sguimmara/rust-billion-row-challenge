@@ -2,7 +2,7 @@ use std::{fs::File, path::Path};
 
 use memmap::{Mmap, MmapOptions};
 
-use super::{parse_row, Row};
+use super::{Parser, parse_row};
 
 pub struct MmapIterator {
     pos: usize,
@@ -17,18 +17,20 @@ impl MmapIterator {
     }
 }
 
-impl Iterator for MmapIterator {
-    type Item = Row;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut row = Row::default();
-        match parse_row(&self.mmap, self.pos, &mut row) {
-            Some(count) => {
-                self.pos += count;
-                Some(row)
+impl Parser for MmapIterator {
+    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64)) {
+        loop {
+            match parse_row(&self.mmap, self.pos, f) {
+                Some(count) => {
+                    self.pos += count;
+                }
+                None => break,
             }
-            None => None,
         }
+    }
+
+    fn new(path: &Path) -> Self {
+        Self::new(path)
     }
 }
 
@@ -36,30 +38,33 @@ impl Iterator for MmapIterator {
 mod test {
     use std::path::Path;
 
-    use crate::parser::{mmap_source::MmapIterator, Row};
+    use crate::parser::{mmap_source::MmapIterator, Parser, test::Row};
 
     #[test]
     fn test_mmap_iterator() {
-        let mut iterator = MmapIterator::new(Path::new("./data/1-row.csv"));
+        let mut parser = MmapIterator::new(Path::new("./data/1-row.csv"));
 
-        let first_row = iterator.next();
+        let mut vec: Vec<Row> = Vec::with_capacity(1);
 
-        assert!(first_row.is_some());
-        if let Some(row) = first_row {
-            assert_eq!(row.temperature, 1f64);
-            assert_eq!(row.station, "foo");
-        }
+        parser.parse(&mut |name, temp| {
+            vec.push(Row::new(&String::from_utf8_lossy(name), temp))
+        });
 
-        let second_row = iterator.next();
+        assert_eq!(vec.len(), 1);
 
-        assert!(second_row.is_none());
+        assert_eq!(vec[0].temperature, 1f64);
+        assert_eq!(vec[0].station, "foo");
     }
 
     #[test]
     fn test_mmap_3_rows() {
-        let iterator = MmapIterator::new(Path::new("./data/3-rows.csv"));
+        let mut parser = MmapIterator::new(Path::new("./data/3-rows.csv"));
 
-        let rows: Vec<Row> = iterator.collect();
+        let mut rows: Vec<Row> = Vec::with_capacity(1);
+
+        parser.parse(&mut |name, temp| {
+            rows.push(Row::new(&String::from_utf8_lossy(name), temp))
+        });
 
         assert_eq!(3, rows.len());
         assert_eq!(rows[0].station, "Paris");
