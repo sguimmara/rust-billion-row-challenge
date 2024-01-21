@@ -1,4 +1,5 @@
 use std::{collections::HashMap, path::Path};
+use ahash::{AHasher, RandomState};
 
 use crate::parser::Parser;
 
@@ -52,7 +53,7 @@ impl<P: Parser> Analyzer<P> {
     }
 
     pub fn collect(self) -> Vec<Station> {
-        let mut map: HashMap<Vec<u8>, Entry> = HashMap::with_capacity(4096);
+        let mut map: HashMap<Vec<u8>, Entry, RandomState> = HashMap::default();
 
         self.parser.parse(&mut |key, t| {
             let temperature = fast_float::parse(t).unwrap();
