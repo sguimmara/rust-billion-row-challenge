@@ -18,7 +18,7 @@ impl MmapIterator {
 }
 
 impl Parser for MmapIterator {
-    fn parse(mut self, f: &mut impl FnMut(&[u8], f64)) {
+    fn parse(mut self, f: &mut impl FnMut(&[u8], f32)) {
         loop {
             match parse_row(&self.mmap, self.pos, f) {
                 Some(count) => {
@@ -52,7 +52,7 @@ mod test {
 
         assert_eq!(vec.len(), 1);
 
-        assert_eq!(vec[0].temperature, 1f64);
+        assert_eq!(vec[0].temperature, 1f32);
         assert_eq!(vec[0].station, "foo");
     }
 
@@ -71,8 +71,8 @@ mod test {
         assert_eq!(rows[1].station, "London");
         assert_eq!(rows[2].station, "Jakarta");
 
-        assert_eq!(rows[0].temperature, 10.2f64);
-        assert_eq!(rows[1].temperature, 8.1f64);
+        assert_eq!(rows[0].temperature, 10.2f32);
+        assert_eq!(rows[1].temperature, 8.1f32);
         assert_eq!(rows[2].temperature, 80.3);
     }
 }

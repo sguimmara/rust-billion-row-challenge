@@ -4,7 +4,7 @@ pub mod fd_source;
 pub mod mmap_source;
 
 pub trait Parser {
-    fn parse(self, f: &mut impl FnMut(&[u8], f64));
+    fn parse(self, f: &mut impl FnMut(&[u8], f32));
     fn new(path: &Path) -> Self;
 }
 
@@ -33,7 +33,7 @@ fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(&[u8], usize)> 
     }
 }
 
-fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f64)) -> Option<usize> {
+fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f32)) -> Option<usize> {
     if let Some((station, bytes_read)) = parse_station(buf, offset) {
         if let Some((temperature, bytes_read_2)) = parse_temp(buf, offset + bytes_read) {
             f(station, temperature);
@@ -44,7 +44,7 @@ fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f64)) -> Optio
     None
 }
 
-fn parse_temp(buf: &[u8], offset: usize) -> Option<(f64, usize)> {
+fn parse_temp(buf: &[u8], offset: usize) -> Option<(f32, usize)> {
     parse_cell(buf, offset, NEWLINE)
         .map(|(value, bytes_read)| (fast_float::parse(value).unwrap(), bytes_read))
 }
@@ -56,11 +56,11 @@ mod test {
     #[derive(Debug, Clone, Default)]
     pub struct Row {
         pub station: String,
-        pub temperature: f64,
+        pub temperature: f32,
     }
 
     impl Row {
-        pub fn new(station: &str, temperature: f64) -> Self {
+        pub fn new(station: &str, temperature: f32) -> Self {
             Self {
                 station: station.to_owned(),
                 temperature,
@@ -86,7 +86,7 @@ mod test {
         let temp = parse_temp(buf.as_bytes(), 0);
 
         assert!(temp.is_some());
-        assert_eq!(temp.unwrap().0, 10.2f64);
+        assert_eq!(temp.unwrap().0, 10.2f32);
         assert_eq!(temp.unwrap().1, 5);
     }
 
@@ -95,7 +95,7 @@ mod test {
         let buf = "St. Petersburg;10.2\n";
 
         let res = parse_row(buf.as_bytes(), 0, &mut |station, temperature| {
-            assert_eq!(temperature, 10.2f64);
+            assert_eq!(temperature, 10.2f32);
             assert_eq!(station, "St. Petersburg".as_bytes());
         });
 
@@ -121,9 +121,9 @@ mod test {
         }
 
         assert_eq!(rows[0].station, "St. Petersburg");
-        assert_eq!(rows[0].temperature, 10.2f64);
+        assert_eq!(rows[0].temperature, 10.2f32);
 
         assert_eq!(rows[1].station, "Paris");
-        assert_eq!(rows[1].temperature, 44.2f64);
+        assert_eq!(rows[1].temperature, 44.2f32);
     }
 }

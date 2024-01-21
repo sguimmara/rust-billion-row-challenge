@@ -5,13 +5,13 @@ use crate::parser::Parser;
 #[derive(Clone)]
 pub struct Station {
     pub name: String,
-    pub min: f64,
-    pub max: f64,
-    pub mean: f64,
+    pub min: f32,
+    pub max: f32,
+    pub mean: f32,
 }
 
 impl Station {
-    pub fn new(name: String, min: f64, max: f64, mean: f64) -> Self {
+    pub fn new(name: String, min: f32, max: f32, mean: f32) -> Self {
         Self {
             name,
             min,
@@ -22,14 +22,14 @@ impl Station {
 }
 
 struct Entry {
-    min: f64,
-    max: f64,
-    sum: f64,
+    min: f32,
+    max: f32,
+    sum: f32,
     count: usize,
 }
 
 impl Entry {
-    pub fn new(temperature: f64) -> Self {
+    pub fn new(temperature: f32) -> Self {
         Self {
             min: temperature,
             max: temperature,
@@ -56,8 +56,8 @@ impl<P: Parser> Analyzer<P> {
 
         self.parser.parse(&mut |key, temperature| {
             if let Some(v) = map.get_mut(key) {
-                v.min = f64::min(v.min, temperature);
-                v.max = f64::max(v.max, temperature);
+                v.min = f32::min(v.min, temperature);
+                v.max = f32::max(v.max, temperature);
                 v.sum += temperature;
                 v.count += 1;
             } else {
@@ -68,8 +68,8 @@ impl<P: Parser> Analyzer<P> {
         let mut result = Vec::with_capacity(map.len());
 
         for (key, entry) in map {
-            let raw_mean = entry.sum / entry.count as f64;
-            let mean = (raw_mean * 10f64).round() / 10f64;
+            let raw_mean = entry.sum / entry.count as f32;
+            let mean = (raw_mean * 10f32).round() / 10f32;
             let station = String::from_utf8(key).unwrap();
             result.push(Station::new(station.to_string(), entry.min, entry.max, mean))
         }
@@ -96,9 +96,9 @@ mod test {
 
         assert_eq!(results.len(), 1);
 
-        assert_eq!(results[0].max, 1f64);
-        assert_eq!(results[0].mean, 1f64);
-        assert_eq!(results[0].min, 1f64);
+        assert_eq!(results[0].max, 1f32);
+        assert_eq!(results[0].mean, 1f32);
+        assert_eq!(results[0].min, 1f32);
         assert_eq!(results[0].name, "foo");
     }
 
@@ -116,9 +116,9 @@ mod test {
             .find(|x| x.name == "Paris")
             .unwrap();
         assert_eq!(paris.name, "Paris");
-        assert_eq!(paris.max, 10.2f64);
-        assert_eq!(paris.mean, 10.2f64);
-        assert_eq!(paris.min, 10.2f64);
+        assert_eq!(paris.max, 10.2f32);
+        assert_eq!(paris.mean, 10.2f32);
+        assert_eq!(paris.min, 10.2f32);
 
         let london = results
             .clone()
@@ -126,9 +126,9 @@ mod test {
             .find(|x| x.name == "London")
             .unwrap();
         assert_eq!(london.name, "London");
-        assert_eq!(london.max, 8.1f64);
-        assert_eq!(london.mean, 8.1f64);
-        assert_eq!(london.min, 8.1f64);
+        assert_eq!(london.max, 8.1f32);
+        assert_eq!(london.mean, 8.1f32);
+        assert_eq!(london.min, 8.1f32);
 
         let jakarta = results
             .clone()
@@ -136,9 +136,9 @@ mod test {
             .find(|x| x.name == "Jakarta")
             .unwrap();
         assert_eq!(jakarta.name, "Jakarta");
-        assert_eq!(jakarta.max, 80.3f64);
-        assert_eq!(jakarta.mean, 80.3f64);
-        assert_eq!(jakarta.min, 80.3f64);
+        assert_eq!(jakarta.max, 80.3f32);
+        assert_eq!(jakarta.mean, 80.3f32);
+        assert_eq!(jakarta.min, 80.3f32);
     }
 
     #[test]
@@ -157,9 +157,9 @@ mod test {
             .find(|x| x.name == "Paris")
             .unwrap();
         assert_eq!(paris.name, "Paris");
-        assert_eq!(paris.min, 8.1f64);
-        assert_eq!(paris.max, 80.3f64);
-        assert_eq!(paris.mean, 32.9f64);
+        assert_eq!(paris.min, 8.1f32);
+        assert_eq!(paris.max, 80.3f32);
+        assert_eq!(paris.mean, 32.9f32);
 
         let london = results
             .clone()
@@ -167,9 +167,9 @@ mod test {
             .find(|x| x.name == "London")
             .unwrap();
         assert_eq!(london.name, "London");
-        assert_eq!(london.min, -9.2f64);
-        assert_eq!(london.max, 55.3f64);
-        assert_eq!(london.mean, 24.4f64);
+        assert_eq!(london.min, -9.2f32);
+        assert_eq!(london.max, 55.3f32);
+        assert_eq!(london.mean, 24.4f32);
 
         let jakarta = results
             .clone()
@@ -177,8 +177,8 @@ mod test {
             .find(|x| x.name == "Jakarta")
             .unwrap();
         assert_eq!(jakarta.name, "Jakarta");
-        assert_eq!(jakarta.min, 2.2f64);
-        assert_eq!(jakarta.max, 90.3f64);
-        assert_eq!(jakarta.mean, 32.9f64);
+        assert_eq!(jakarta.min, 2.2f32);
+        assert_eq!(jakarta.max, 90.3f32);
+        assert_eq!(jakarta.mean, 32.9f32);
     }
 }
