@@ -54,7 +54,8 @@ impl<P: Parser> Analyzer<P> {
     pub fn collect(self) -> Vec<Station> {
         let mut map: HashMap<Vec<u8>, Entry> = HashMap::with_capacity(4096);
 
-        self.parser.parse(&mut |key, temperature| {
+        self.parser.parse(&mut |key, t| {
+            let temperature = fast_float::parse(t).unwrap();
             if let Some(v) = map.get_mut(key) {
                 v.min = f32::min(v.min, temperature);
                 v.max = f32::max(v.max, temperature);

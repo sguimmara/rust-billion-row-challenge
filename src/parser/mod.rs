@@ -4,7 +4,7 @@ pub mod fd_source;
 pub mod mmap_source;
 
 pub trait Parser {
-    fn parse(self, f: &mut impl FnMut(&[u8], f32));
+    fn parse(self, f: &mut impl FnMut(&[u8], &[u8]));
     fn new(path: &Path) -> Self;
 }
 
@@ -33,7 +33,7 @@ fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(&[u8], usize)> 
     }
 }
 
-fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f32)) -> Option<usize> {
+fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], &[u8])) -> Option<usize> {
     if let Some((station, bytes_read)) = parse_station(buf, offset) {
         if let Some((temperature, bytes_read_2)) = parse_temp(buf, offset + bytes_read) {
             f(station, temperature);
@@ -44,9 +44,9 @@ fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], f32)) -> Optio
     None
 }
 
-fn parse_temp(buf: &[u8], offset: usize) -> Option<(f32, usize)> {
+fn parse_temp(buf: &[u8], offset: usize) -> Option<(&[u8], usize)> {
     parse_cell(buf, offset, NEWLINE)
-        .map(|(value, bytes_read)| (fast_float::parse(value).unwrap(), bytes_read))
+        .map(|(value, bytes_read)| (value, bytes_read))
 }
 
 #[cfg(test)]
@@ -83,19 +83,23 @@ mod test {
     #[test]
     fn test_parse_temperature() {
         let buf = "10.2\n";
-        let temp = parse_temp(buf.as_bytes(), 0);
+        let result = parse_temp(buf.as_bytes(), 0);
 
-        assert!(temp.is_some());
-        assert_eq!(temp.unwrap().0, 10.2f32);
-        assert_eq!(temp.unwrap().1, 5);
+        assert!(result.is_some());
+        if let Some((t, bytes)) = result {
+            let temp: f32 = fast_float::parse(t).unwrap();
+            assert_eq!(temp, 10.2f32);
+            assert_eq!(bytes, 5);
+        }
     }
 
     #[test]
     fn test_parse_row() {
         let buf = "St. Petersburg;10.2\n";
 
-        let res = parse_row(buf.as_bytes(), 0, &mut |station, temperature| {
-            assert_eq!(temperature, 10.2f32);
+        let res = parse_row(buf.as_bytes(), 0, &mut |station, t| {
+            let temp: f32 = fast_float::parse(t).unwrap();
+            assert_eq!(temp, 10.2f32);
             assert_eq!(station, "St. Petersburg".as_bytes());
         });
 
@@ -111,7 +115,7 @@ mod test {
 
         loop {
             let res = parse_row(buf.as_bytes(), offset, &mut |station, temperature| {
-                rows.push(Row::new(&String::from_utf8_lossy(station), temperature));
+                rows.push(Row::new(&String::from_utf8_lossy(station), fast_float::parse(temperature).unwrap()));
             });
 
             if res.is_none() {

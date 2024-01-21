@@ -40,7 +40,7 @@ impl FdIterator {
 }
 
 impl Parser for FdIterator {
-    fn parse(mut self, f: &mut impl FnMut(&[u8], f32)) {
+    fn parse(mut self, f: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
@@ -78,7 +78,7 @@ mod test {
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            vec.push(Row::new(&String::from_utf8_lossy(name), temp))
+            vec.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
         });
 
         assert_eq!(vec.len(), 1);
@@ -94,7 +94,7 @@ mod test {
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            rows.push(Row::new(&String::from_utf8_lossy(name), temp))
+            rows.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
         });
 
         assert_eq!(3, rows.len());
