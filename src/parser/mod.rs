@@ -11,47 +11,35 @@ pub trait Parser {
 const NEWLINE: u8 = 10;
 const SEMICOLON: u8 = 59;
 
-fn parse_station(buf: &[u8], offset: usize) -> Option<(&[u8], usize)> {
-    parse_cell(buf, offset, SEMICOLON).map(|(value, bytes_read)| (value, bytes_read))
-}
-
-fn parse_cell(buf: &[u8], offset: usize, limiter: u8) -> Option<(&[u8], usize)> {
-    let start = offset;
-    let mut bytes_read = 0;
-    loop {
-        if buf.len() <= start + bytes_read {
-            return None;
-        }
-        let c = buf[start + bytes_read];
-        if c == limiter {
-            let slice = &buf[start..(start + bytes_read)];
-            // let value = String::from_utf8_lossy(slice);
-            bytes_read += 1;
-            return Some((slice, bytes_read));
-        }
-        bytes_read += 1;
-    }
-}
-
 fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], &[u8])) -> Option<usize> {
-    if let Some((station, bytes_read)) = parse_station(buf, offset) {
-        if let Some((temperature, bytes_read_2)) = parse_temp(buf, offset + bytes_read) {
-            f(station, temperature);
-            return Some(bytes_read + bytes_read_2);
+    let mut end_of_station = 0;
+    let mut end_of_temperature = 0;
+    let mut complete = false;
+
+    for i in offset..buf.len() {
+        match buf[i] {
+            SEMICOLON => end_of_station = i,
+            NEWLINE => {
+                end_of_temperature = i;
+                complete = true;
+                break;
+            },
+            _ => {}
         }
     }
 
-    None
-}
+    if complete {
+        f(&buf[offset..end_of_station], &buf[(end_of_station + 1)..end_of_temperature]);
 
-fn parse_temp(buf: &[u8], offset: usize) -> Option<(&[u8], usize)> {
-    parse_cell(buf, offset, NEWLINE)
-        .map(|(value, bytes_read)| (value, bytes_read))
+        Some(end_of_temperature - offset + 1)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::parser::{parse_row, parse_station, parse_temp};
+    use crate::parser::parse_row;
 
     #[derive(Debug, Clone, Default)]
     pub struct Row {
@@ -69,38 +57,13 @@ mod test {
     }
 
     #[test]
-    fn test_parse_station() {
-        let buf = "foo;1";
-        let result = parse_station(buf.as_bytes(), 0);
-
-        assert!(result.is_some());
-        if let Some((station, offset)) = result {
-            assert_eq!(station, "foo".as_bytes());
-            assert_eq!(offset, 4);
-        }
-    }
-
-    #[test]
-    fn test_parse_temperature() {
-        let buf = "10.2\n";
-        let result = parse_temp(buf.as_bytes(), 0);
-
-        assert!(result.is_some());
-        if let Some((t, bytes)) = result {
-            let temp: f32 = fast_float::parse(t).unwrap();
-            assert_eq!(temp, 10.2f32);
-            assert_eq!(bytes, 5);
-        }
-    }
-
-    #[test]
     fn test_parse_row() {
         let buf = "St. Petersburg;10.2\n";
 
         let res = parse_row(buf.as_bytes(), 0, &mut |station, t| {
+            assert_eq!(station, "St. Petersburg".as_bytes());
             let temp: f32 = fast_float::parse(t).unwrap();
             assert_eq!(temp, 10.2f32);
-            assert_eq!(station, "St. Petersburg".as_bytes());
         });
 
         assert!(res.is_some());
