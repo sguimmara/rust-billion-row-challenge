@@ -40,7 +40,7 @@ impl FdIterator {
 }
 
 impl Parser for FdIterator {
-    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64)) {
+    fn parse(mut self, f: &mut impl FnMut(&[u8], f64)) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
@@ -73,7 +73,7 @@ mod test {
 
     #[test]
     fn test_mmap_iterator() {
-        let mut parser = FdIterator::new(Path::new("./data/1-row.csv"));
+        let parser = FdIterator::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -89,7 +89,7 @@ mod test {
 
     #[test]
     fn test_mmap_3_rows() {
-        let mut parser = FdIterator::new(Path::new("./data/3-rows.csv"));
+        let parser = FdIterator::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

@@ -18,7 +18,7 @@ impl MmapIterator {
 }
 
 impl Parser for MmapIterator {
-    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64)) {
+    fn parse(mut self, f: &mut impl FnMut(&[u8], f64)) {
         loop {
             match parse_row(&self.mmap, self.pos, f) {
                 Some(count) => {
@@ -42,7 +42,7 @@ mod test {
 
     #[test]
     fn test_mmap_iterator() {
-        let mut parser = MmapIterator::new(Path::new("./data/1-row.csv"));
+        let parser = MmapIterator::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -58,7 +58,7 @@ mod test {
 
     #[test]
     fn test_mmap_3_rows() {
-        let mut parser = MmapIterator::new(Path::new("./data/3-rows.csv"));
+        let parser = MmapIterator::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

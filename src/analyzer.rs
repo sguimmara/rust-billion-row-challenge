@@ -40,38 +40,38 @@ impl Entry {
 }
 
 pub struct Analyzer<P: Parser> {
-    stations: HashMap<String, Entry>,
-    parser: Box<P>,
+    parser: P,
 }
 
 impl<P: Parser> Analyzer<P> {
     pub fn new(path: &Path) -> Self {
-        let parser = Box::new(P::new(path));
+        let parser = P::new(path);
         Self {
-            stations: HashMap::with_capacity(12_000), // TODO custom hasher
             parser,
         }
     }
 
-    pub fn collect(mut self) -> Vec<Station> {
-        self.parser.parse(&mut |name, t| {
-            let station = String::from_utf8_lossy(name);
-            if let Some(v) = self.stations.get_mut(station.as_ref()) {
-                v.min = f64::min(v.min, t);
-                v.max = f64::max(v.max, t);
-                v.sum += t;
+    pub fn collect(self) -> Vec<Station> {
+        let mut map: HashMap<Vec<u8>, Entry> = HashMap::with_capacity(4096);
+
+        self.parser.parse(&mut |key, temperature| {
+            if let Some(v) = map.get_mut(key) {
+                v.min = f64::min(v.min, temperature);
+                v.max = f64::max(v.max, temperature);
+                v.sum += temperature;
                 v.count += 1;
             } else {
-                self.stations.insert(station.to_string(), Entry::new(t));
+                map.insert(key.to_vec(), Entry::new(temperature));
             }
         });
 
-        let mut result = Vec::with_capacity(self.stations.len());
+        let mut result = Vec::with_capacity(map.len());
 
-        for (station, entry) in self.stations {
+        for (key, entry) in map {
             let raw_mean = entry.sum / entry.count as f64;
             let mean = (raw_mean * 10f64).round() / 10f64;
-            result.push(Station::new(station, entry.min, entry.max, mean))
+            let station = String::from_utf8(key).unwrap();
+            result.push(Station::new(station.to_string(), entry.min, entry.max, mean))
         }
 
         result.sort_unstable_by_key(|x| x.name.clone());

@@ -4,7 +4,7 @@ pub mod fd_source;
 pub mod mmap_source;
 
 pub trait Parser {
-    fn parse(&mut self, f: &mut impl FnMut(&[u8], f64));
+    fn parse(self, f: &mut impl FnMut(&[u8], f64));
     fn new(path: &Path) -> Self;
 }
 
