@@ -25,7 +25,7 @@ struct Entry {
     min: f32,
     max: f32,
     sum: f32,
-    count: usize,
+    count: u32,
 }
 
 impl Entry {
