@@ -64,12 +64,11 @@ impl Parser for FdIterator {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use std::path::Path;
 
-    use crate::parser::{Parser, test::Row, fd_source::FdIterator};
+    use crate::parser::{fd_source::FdIterator, test::Row, Parser};
 
     #[test]
     fn test_mmap_iterator() {
@@ -78,7 +77,10 @@ mod test {
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            vec.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
+            vec.push(Row::new(
+                &String::from_utf8_lossy(name),
+                fast_float::parse(temp).unwrap(),
+            ))
         });
 
         assert_eq!(vec.len(), 1);
@@ -94,7 +96,10 @@ mod test {
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            rows.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
+            rows.push(Row::new(
+                &String::from_utf8_lossy(name),
+                fast_float::parse(temp).unwrap(),
+            ))
         });
 
         assert_eq!(3, rows.len());

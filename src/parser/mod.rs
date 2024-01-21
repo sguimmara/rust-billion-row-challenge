@@ -23,13 +23,16 @@ fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], &[u8])) -> Opt
                 end_of_temperature = i;
                 complete = true;
                 break;
-            },
+            }
             _ => {}
         }
     }
 
     if complete {
-        f(&buf[offset..end_of_station], &buf[(end_of_station + 1)..end_of_temperature]);
+        f(
+            &buf[offset..end_of_station],
+            &buf[(end_of_station + 1)..end_of_temperature],
+        );
 
         Some(end_of_temperature - offset + 1)
     } else {
@@ -78,7 +81,10 @@ mod test {
 
         loop {
             let res = parse_row(buf.as_bytes(), offset, &mut |station, temperature| {
-                rows.push(Row::new(&String::from_utf8_lossy(station), fast_float::parse(temperature).unwrap()));
+                rows.push(Row::new(
+                    &String::from_utf8_lossy(station),
+                    fast_float::parse(temperature).unwrap(),
+                ));
             });
 
             if res.is_none() {

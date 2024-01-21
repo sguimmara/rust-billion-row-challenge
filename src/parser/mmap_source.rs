@@ -2,7 +2,7 @@ use std::{fs::File, path::Path};
 
 use memmap::{Mmap, MmapOptions};
 
-use super::{Parser, parse_row};
+use super::{parse_row, Parser};
 
 pub struct MmapIterator {
     pos: usize,
@@ -38,7 +38,7 @@ impl Parser for MmapIterator {
 mod test {
     use std::path::Path;
 
-    use crate::parser::{mmap_source::MmapIterator, Parser, test::Row};
+    use crate::parser::{mmap_source::MmapIterator, test::Row, Parser};
 
     #[test]
     fn test_mmap_iterator() {
@@ -47,7 +47,10 @@ mod test {
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            vec.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
+            vec.push(Row::new(
+                &String::from_utf8_lossy(name),
+                fast_float::parse(temp).unwrap(),
+            ))
         });
 
         assert_eq!(vec.len(), 1);
@@ -63,7 +66,10 @@ mod test {
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 
         parser.parse(&mut |name, temp| {
-            rows.push(Row::new(&String::from_utf8_lossy(name), fast_float::parse(temp).unwrap()))
+            rows.push(Row::new(
+                &String::from_utf8_lossy(name),
+                fast_float::parse(temp).unwrap(),
+            ))
         });
 
         assert_eq!(3, rows.len());

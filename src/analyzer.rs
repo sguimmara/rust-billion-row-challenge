@@ -1,5 +1,5 @@
+use nohash::IntMap;
 use std::path::Path;
-use rustc_hash::FxHashMap;
 
 use crate::parser::Parser;
 
@@ -27,15 +27,17 @@ struct Entry {
     max: f32,
     sum: f32,
     count: u32,
+    name: String,
 }
 
 impl Entry {
-    pub fn new(temperature: f32) -> Self {
+    pub fn new(temperature: f32, s: &[u8]) -> Self {
         Self {
             min: temperature,
             max: temperature,
             sum: temperature,
             count: 1,
+            name: String::from_utf8_lossy(s).to_string(),
         }
     }
 }
@@ -44,36 +46,52 @@ pub struct Analyzer<P: Parser> {
     parser: P,
 }
 
+fn hash(s: &[u8]) -> u64 {
+    let mut result: u64 = 23;
+    // h.write_usize(s.len());
+    for i in 0..s.len() {
+        result += 23 * (s[i] as u64);
+    }
+
+    result
+}
+
 impl<P: Parser> Analyzer<P> {
     pub fn new(path: &Path) -> Self {
         let parser = P::new(path);
-        Self {
-            parser,
-        }
+        Self { parser }
     }
 
     pub fn collect(self) -> Vec<Station> {
-        let mut map: FxHashMap<Vec<u8>, Entry> = FxHashMap::default();
+        let mut map: IntMap<u64, Entry> = IntMap::default();
 
-        self.parser.parse(&mut |key, t| {
+        self.parser.parse(&mut |station, t| {
             let temperature = fast_float::parse(t).unwrap();
-            if let Some(v) = map.get_mut(key) {
+
+            let k = hash(station);
+
+            if let Some(v) = map.get_mut(&k) {
                 v.min = f32::min(v.min, temperature);
                 v.max = f32::max(v.max, temperature);
                 v.sum += temperature;
                 v.count += 1;
             } else {
-                map.insert(key.to_vec(), Entry::new(temperature));
+                map.insert(k, Entry::new(temperature, station));
             }
         });
 
         let mut result = Vec::with_capacity(map.len());
 
-        for (key, entry) in map {
+        for (_key, entry) in map {
             let raw_mean = entry.sum / entry.count as f32;
             let mean = (raw_mean * 10f32).round() / 10f32;
-            let station = String::from_utf8(key).unwrap();
-            result.push(Station::new(station.to_string(), entry.min, entry.max, mean))
+            let station = entry.name;
+            result.push(Station::new(
+                station.to_string(),
+                entry.min,
+                entry.max,
+                mean,
+            ))
         }
 
         result.sort_unstable_by_key(|x| x.name.clone());
@@ -145,9 +163,8 @@ mod test {
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer: Analyzer<MmapIterator> = Analyzer::new(
-            Path::new("./data/9-rows-duplicate-stations.csv"),
-        );
+        let analyzer: Analyzer<MmapIterator> =
+            Analyzer::new(Path::new("./data/9-rows-duplicate-stations.csv"));
 
         let results = analyzer.collect();
 
