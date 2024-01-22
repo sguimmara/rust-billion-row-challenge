@@ -27,7 +27,6 @@ enum ProcessorType {
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The file to read.
-    #[arg(short, long)]
     input: String,
 
     /// Don't print anything.

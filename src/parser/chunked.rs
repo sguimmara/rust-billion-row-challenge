@@ -72,7 +72,7 @@ mod test {
     use crate::parser::{chunked::ChunkParser, test::Row, CSVParser};
 
     #[test]
-    fn test_mmap_iterator() {
+    fn parse_1_row() {
         let parser = ChunkParser::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
@@ -91,7 +91,7 @@ mod test {
     }
 
     #[test]
-    fn test_mmap_3_rows() {
+    fn parse_3_rows() {
         let parser = ChunkParser::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
@@ -104,12 +104,14 @@ mod test {
         });
 
         assert_eq!(3, rows.len());
-        assert_eq!(rows[0].station, "Paris");
-        assert_eq!(rows[1].station, "London");
-        assert_eq!(rows[2].station, "Jakarta");
 
+        assert_eq!(rows[0].station, "Paris");
         assert_eq!(rows[0].temperature, 10.2f32);
+
+        assert_eq!(rows[1].station, "London");
         assert_eq!(rows[1].temperature, 8.1f32);
+
+        assert_eq!(rows[2].station, "Jakarta");
         assert_eq!(rows[2].temperature, 80.3);
     }
 }

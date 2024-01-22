@@ -1,5 +1,13 @@
 #!/bin/sh
 
 FILE=$1
-cargo build --release
-hyperfine --warmup 1 -N "target/release/rust-billion-row-challenge --input /Users/sguimmara/Documents/git/1brc/data/$FILE.csv --method fd -q"
+BIN="target/release/onebrc"
+
+cargo test
+cargo build --release -q
+
+hyperfine --warmup 1 -N \
+          -L parser chunk,memory-mapped \
+          -L processor sequential \
+          "$BIN --parser {parser} --processor {processor} -q $FILE" \
+          --export-markdown results.md

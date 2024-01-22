@@ -15,6 +15,7 @@ Cargo.lock
 
 .DS_Store
 flamegraph.svg
+results.md
 
 # Added by cargo
 
