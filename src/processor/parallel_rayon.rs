@@ -78,7 +78,7 @@ impl WorkBuffer {
 }
 
 impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
-    fn process(self) -> Vec<super::Station> {
+    fn process(&mut self) -> Vec<super::Station> {
         let mut work_buffer = WorkBuffer::default();
         let map: DashMap<u64, Entry> = DashMap::with_capacity(10000);
 
@@ -125,103 +125,24 @@ impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
 
-    use crate::{parser::ChunkParser, processor::Processor};
+    use crate::parser::ChunkParser;
+    use crate::parser;
 
     use super::ParallelRayonProcessor;
 
     #[test]
     fn test_1_row() {
-        let processor = ParallelRayonProcessor::<ChunkParser>::new(Path::new("./data/1-row.csv"));
-
-        let results = processor.process();
-
-        assert_eq!(results.len(), 1);
-
-        assert_eq!(results[0].max, 1f32);
-        assert_eq!(results[0].mean, 1f32);
-        assert_eq!(results[0].min, 1f32);
-        assert_eq!(results[0].name, "foo");
+        parser::test::run_test_1_row::<ParallelRayonProcessor::<ChunkParser>>();
     }
 
     #[test]
     fn test_3_rows() {
-        let analyzer = ParallelRayonProcessor::<ChunkParser>::new(Path::new("./data/3-rows.csv"));
-
-        let results = analyzer.process();
-
-        assert_eq!(results.len(), 3);
-
-        let paris = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "Paris")
-            .unwrap();
-        assert_eq!(paris.name, "Paris");
-        assert_eq!(paris.max, 10.2f32);
-        assert_eq!(paris.mean, 10.2f32);
-        assert_eq!(paris.min, 10.2f32);
-
-        let london = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "London")
-            .unwrap();
-        assert_eq!(london.name, "London");
-        assert_eq!(london.max, 8.1f32);
-        assert_eq!(london.mean, 8.1f32);
-        assert_eq!(london.min, 8.1f32);
-
-        let jakarta = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "Jakarta")
-            .unwrap();
-        assert_eq!(jakarta.name, "Jakarta");
-        assert_eq!(jakarta.max, 80.3f32);
-        assert_eq!(jakarta.mean, 80.3f32);
-        assert_eq!(jakarta.min, 80.3f32);
+        parser::test::run_test_3_rows::<ParallelRayonProcessor::<ChunkParser>>();
     }
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer = ParallelRayonProcessor::<ChunkParser>::new(Path::new(
-            "./data/9-rows-duplicate-stations.csv",
-        ));
-
-        let results = analyzer.process();
-
-        assert_eq!(results.len(), 3);
-
-        let paris = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "Paris")
-            .unwrap();
-        assert_eq!(paris.name, "Paris");
-        assert_eq!(paris.min, 8.1f32);
-        assert_eq!(paris.max, 80.3f32);
-        assert_eq!(paris.mean, 32.9f32);
-
-        let london = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "London")
-            .unwrap();
-        assert_eq!(london.name, "London");
-        assert_eq!(london.min, -9.2f32);
-        assert_eq!(london.max, 55.3f32);
-        assert_eq!(london.mean, 24.4f32);
-
-        let jakarta = results
-            .clone()
-            .into_iter()
-            .find(|x| x.name == "Jakarta")
-            .unwrap();
-        assert_eq!(jakarta.name, "Jakarta");
-        assert_eq!(jakarta.min, 2.2f32);
-        assert_eq!(jakarta.max, 90.3f32);
-        assert_eq!(jakarta.mean, 32.9f32);
+        parser::test::run_test_9_rows_duplicate_stations::<ParallelRayonProcessor::<ChunkParser>>();
     }
 }

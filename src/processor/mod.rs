@@ -37,5 +37,5 @@ impl Station {
 
 pub trait Processor {
     fn new(path: &Path) -> Self;
-    fn process(self) -> Vec<Station>;
+    fn process(&mut self) -> Vec<Station>;
 }

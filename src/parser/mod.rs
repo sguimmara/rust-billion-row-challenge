@@ -8,7 +8,7 @@ pub use crate::parser::memory_mapped::MemoryMappedParser;
 
 pub trait CSVParser {
     fn new(path: &Path) -> Self;
-    fn parse(self, visitor: &mut impl FnMut(&[u8], &[u8]));
+    fn parse(&mut self, visitor: &mut impl FnMut(&[u8], &[u8]));
 }
 
 const NEWLINE: u8 = 10;
@@ -44,8 +44,10 @@ fn parse_row(buf: &[u8], offset: usize, callback: &mut impl FnMut(&[u8], &[u8]))
 }
 
 #[cfg(test)]
-mod test {
-    use crate::parser::parse_row;
+pub mod test {
+    use std::path::Path;
+
+    use crate::{parser::parse_row, processor::Processor};
 
     #[derive(Debug, Clone, Default)]
     pub struct Row {
@@ -101,5 +103,94 @@ mod test {
 
         assert_eq!(rows[1].station, "Paris");
         assert_eq!(rows[1].temperature, 44.2f32);
+    }
+
+    pub fn run_test_1_row<P: Processor>() {
+        let mut processor = P::new(Path::new("./data/1-row.csv"));
+
+        let results = processor.process();
+
+        assert_eq!(results.len(), 1);
+
+        assert_eq!(results[0].max, 1f32);
+        assert_eq!(results[0].mean, 1f32);
+        assert_eq!(results[0].min, 1f32);
+        assert_eq!(results[0].name, "foo");
+    }
+
+    pub fn run_test_3_rows<P: Processor>() {
+        let mut processor = P::new(Path::new("./data/3-rows.csv"));
+
+        let results = processor.process();
+
+        assert_eq!(results.len(), 3);
+
+        let paris = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "Paris")
+            .unwrap();
+        assert_eq!(paris.name, "Paris");
+        assert_eq!(paris.max, 10.2f32);
+        assert_eq!(paris.mean, 10.2f32);
+        assert_eq!(paris.min, 10.2f32);
+
+        let london = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "London")
+            .unwrap();
+        assert_eq!(london.name, "London");
+        assert_eq!(london.max, 8.1f32);
+        assert_eq!(london.mean, 8.1f32);
+        assert_eq!(london.min, 8.1f32);
+
+        let jakarta = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "Jakarta")
+            .unwrap();
+        assert_eq!(jakarta.name, "Jakarta");
+        assert_eq!(jakarta.max, 80.3f32);
+        assert_eq!(jakarta.mean, 80.3f32);
+        assert_eq!(jakarta.min, 80.3f32);
+    }
+
+    pub fn run_test_9_rows_duplicate_stations<P: Processor>() {
+        let mut processor = P::new(Path::new("./data/9-rows-duplicate-stations.csv"));
+
+        let results = processor.process();
+
+        assert_eq!(results.len(), 3);
+
+        let paris = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "Paris")
+            .unwrap();
+        assert_eq!(paris.name, "Paris");
+        assert_eq!(paris.min, 8.1f32);
+        assert_eq!(paris.max, 80.3f32);
+        assert_eq!(paris.mean, 32.9f32);
+
+        let london = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "London")
+            .unwrap();
+        assert_eq!(london.name, "London");
+        assert_eq!(london.min, -9.2f32);
+        assert_eq!(london.max, 55.3f32);
+        assert_eq!(london.mean, 24.4f32);
+
+        let jakarta = results
+            .clone()
+            .into_iter()
+            .find(|x| x.name == "Jakarta")
+            .unwrap();
+        assert_eq!(jakarta.name, "Jakarta");
+        assert_eq!(jakarta.min, 2.2f32);
+        assert_eq!(jakarta.max, 90.3f32);
+        assert_eq!(jakarta.mean, 32.9f32);
     }
 }

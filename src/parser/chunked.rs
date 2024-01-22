@@ -41,7 +41,7 @@ impl ChunkParser {
 }
 
 impl CSVParser for ChunkParser {
-    fn parse(mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
+    fn parse(&mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
@@ -73,7 +73,7 @@ mod test {
 
     #[test]
     fn parse_1_row() {
-        let parser = ChunkParser::new(Path::new("./data/1-row.csv"));
+        let mut parser = ChunkParser::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -92,7 +92,7 @@ mod test {
 
     #[test]
     fn parse_3_rows() {
-        let parser = ChunkParser::new(Path::new("./data/3-rows.csv"));
+        let mut parser = ChunkParser::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 
