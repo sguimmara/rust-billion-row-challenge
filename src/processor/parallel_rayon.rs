@@ -82,7 +82,7 @@ impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
         let mut work_buffer = WorkBuffer::default();
         let map: DashMap<u64, Entry> = DashMap::with_capacity(10000);
 
-        self.parser.parse(&mut |name_row, temp_row| {
+        self.parser.visit_all_rows(&mut |name_row, temp_row| {
             let name = String::from_utf8_lossy(name_row).to_string();
             let temp = String::from_utf8_lossy(temp_row).to_string();
 

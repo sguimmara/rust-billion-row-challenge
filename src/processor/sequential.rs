@@ -41,7 +41,7 @@ impl<P: CSVParser> Processor for SequentialProcessor<P> {
     fn process(&mut self) -> Vec<Station> {
         let mut map: IntMap<u64, Entry> = IntMap::default();
 
-        self.parser.parse(&mut |station, t| {
+        self.parser.visit_all_rows(&mut |station, t| {
             let temperature = fast_float::parse(t).unwrap();
 
             let k = hash_station_name(station);

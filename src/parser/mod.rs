@@ -8,11 +8,14 @@ pub use crate::parser::memory_mapped::MemoryMappedParser;
 
 pub trait CSVParser {
     fn new(path: &Path) -> Self;
-    fn parse(&mut self, visitor: &mut impl FnMut(&[u8], &[u8]));
+    /// Applies the visitor callback on all rows in the file. This operation is zero-copy.
+    fn visit_all_rows(&mut self, visitor: &mut impl FnMut(&[u8], &[u8]));
 }
 
-const NEWLINE: u8 = 10;
-const SEMICOLON: u8 = 59;
+/// ASCII code for newline
+const NEWLINE_CODE: u8 = 10;
+/// ASCII code for semicolon
+const SEMICOLON_CODE: u8 = 59;
 
 fn parse_row(buf: &[u8], offset: usize, callback: &mut impl FnMut(&[u8], &[u8])) -> Option<usize> {
     let mut end_of_station = 0;
@@ -21,8 +24,8 @@ fn parse_row(buf: &[u8], offset: usize, callback: &mut impl FnMut(&[u8], &[u8]))
 
     for i in offset..buf.len() {
         match buf[i] {
-            SEMICOLON => end_of_station = i,
-            NEWLINE => {
+            SEMICOLON_CODE => end_of_station = i,
+            NEWLINE_CODE => {
                 end_of_temperature = i;
                 complete = true;
                 break;

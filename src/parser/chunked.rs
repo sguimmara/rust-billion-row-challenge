@@ -41,7 +41,7 @@ impl ChunkParser {
 }
 
 impl CSVParser for ChunkParser {
-    fn parse(&mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
+    fn visit_all_rows(&mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
@@ -77,7 +77,7 @@ mod test {
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
-        parser.parse(&mut |name, temp| {
+        parser.visit_all_rows(&mut |name, temp| {
             vec.push(Row::new(
                 &String::from_utf8_lossy(name),
                 fast_float::parse(temp).unwrap(),
@@ -96,7 +96,7 @@ mod test {
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 
-        parser.parse(&mut |name, temp| {
+        parser.visit_all_rows(&mut |name, temp| {
             rows.push(Row::new(
                 &String::from_utf8_lossy(name),
                 fast_float::parse(temp).unwrap(),
