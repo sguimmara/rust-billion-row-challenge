@@ -4,19 +4,20 @@ use std::{
     path::Path,
 };
 
-use super::{parse_row, Parser};
+use super::{parse_row, CSVParser};
 
-const BUF_SIZE: usize = 16384;
+const CHUNK_SIZE: usize = 16384;
 
-pub struct FdIterator {
+/// A parser that reads the CSV in fixed size chunks.
+pub struct ChunkParser {
     offset: usize,
     fd: File,
-    buf: [u8; BUF_SIZE],
+    buf: [u8; CHUNK_SIZE],
     file_size: u64,
     buf_offset: usize,
 }
 
-impl FdIterator {
+impl ChunkParser {
     pub fn new(path: &Path) -> Self {
         let fd = File::open(path).unwrap();
         let file_size = fd.metadata().unwrap().size();
@@ -26,7 +27,7 @@ impl FdIterator {
             file_size,
             offset: 0,
             buf_offset: 0,
-            buf: [0; BUF_SIZE],
+            buf: [0; CHUNK_SIZE],
         };
 
         res.fill_buffer();
@@ -39,14 +40,14 @@ impl FdIterator {
     }
 }
 
-impl Parser for FdIterator {
-    fn parse(mut self, f: &mut impl FnMut(&[u8], &[u8])) {
+impl CSVParser for ChunkParser {
+    fn parse(mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
             }
 
-            match parse_row(&self.buf, self.buf_offset, f) {
+            match parse_row(&self.buf, self.buf_offset, visitor) {
                 Some(count) => {
                     self.buf_offset += count;
                     self.offset += count;
@@ -68,11 +69,11 @@ impl Parser for FdIterator {
 mod test {
     use std::path::Path;
 
-    use crate::parser::{fd_source::FdIterator, test::Row, Parser};
+    use crate::parser::{chunked::ChunkParser, test::Row, CSVParser};
 
     #[test]
     fn test_mmap_iterator() {
-        let parser = FdIterator::new(Path::new("./data/1-row.csv"));
+        let parser = ChunkParser::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -91,7 +92,7 @@ mod test {
 
     #[test]
     fn test_mmap_3_rows() {
-        let parser = FdIterator::new(Path::new("./data/3-rows.csv"));
+        let parser = ChunkParser::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

@@ -1,26 +1,10 @@
-use nohash::IntMap;
 use std::path::Path;
 
-use crate::parser::Parser;
+use nohash::IntMap;
 
-#[derive(Clone)]
-pub struct Station {
-    pub name: String,
-    pub min: f32,
-    pub max: f32,
-    pub mean: f32,
-}
+use crate::parser::CSVParser;
 
-impl Station {
-    pub fn new(name: String, min: f32, max: f32, mean: f32) -> Self {
-        Self {
-            name,
-            min,
-            max,
-            mean,
-        }
-    }
-}
+use super::{hash_station_name, Station};
 
 struct Entry {
     min: f32,
@@ -42,24 +26,14 @@ impl Entry {
     }
 }
 
-pub struct Analyzer<P: Parser> {
+/// A single-threaded, sequential processor.
+pub struct SequentialProcessor<P: CSVParser> {
     parser: P,
 }
 
-fn hash(s: &[u8]) -> u64 {
-    let mut result: u64 = 23;
-    // h.write_usize(s.len());
-    for i in 0..s.len() {
-        result += 23 * (s[i] as u64);
-    }
-
-    result
-}
-
-impl<P: Parser> Analyzer<P> {
+impl<P: CSVParser> SequentialProcessor<P> {
     pub fn new(path: &Path) -> Self {
-        let parser = P::new(path);
-        Self { parser }
+        Self { parser: P::new(path) }
     }
 
     pub fn collect(self) -> Vec<Station> {
@@ -68,7 +42,7 @@ impl<P: Parser> Analyzer<P> {
         self.parser.parse(&mut |station, t| {
             let temperature = fast_float::parse(t).unwrap();
 
-            let k = hash(station);
+            let k = hash_station_name(station);
 
             if let Some(v) = map.get_mut(&k) {
                 v.min = f32::min(v.min, temperature);
@@ -104,13 +78,13 @@ impl<P: Parser> Analyzer<P> {
 mod test {
     use std::path::Path;
 
-    use crate::parser::mmap_source::MmapIterator;
+    use crate::parser::ChunkParser;
 
-    use super::Analyzer;
+    use super::SequentialProcessor;
 
     #[test]
     fn test_1_row() {
-        let analyzer: Analyzer<MmapIterator> = Analyzer::new(Path::new("./data/1-row.csv"));
+        let analyzer: SequentialProcessor<ChunkParser> = SequentialProcessor::<ChunkParser>::new(Path::new("./data/1-row.csv"));
 
         let results = analyzer.collect();
 
@@ -124,7 +98,7 @@ mod test {
 
     #[test]
     fn test_3_rows() {
-        let analyzer: Analyzer<MmapIterator> = Analyzer::new(Path::new("./data/3-rows.csv"));
+        let analyzer: SequentialProcessor<ChunkParser> = SequentialProcessor::<ChunkParser>::new(Path::new("./data/3-rows.csv"));
 
         let results = analyzer.collect();
 
@@ -163,8 +137,8 @@ mod test {
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer: Analyzer<MmapIterator> =
-            Analyzer::new(Path::new("./data/9-rows-duplicate-stations.csv"));
+        let analyzer: SequentialProcessor<ChunkParser> =
+            SequentialProcessor::<ChunkParser>::new(Path::new("./data/9-rows-duplicate-stations.csv"));
 
         let results = analyzer.collect();
 

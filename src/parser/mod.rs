@@ -1,17 +1,20 @@
+pub mod chunked;
+pub mod memory_mapped;
+
 use std::path::Path;
 
-pub mod fd_source;
-pub mod mmap_source;
+pub use crate::parser::chunked::ChunkParser;
+pub use crate::parser::memory_mapped::MemoryMappedParser;
 
-pub trait Parser {
-    fn parse(self, f: &mut impl FnMut(&[u8], &[u8]));
+pub trait CSVParser {
+    fn parse(self, visitor: &mut impl FnMut(&[u8], &[u8]));
     fn new(path: &Path) -> Self;
 }
 
 const NEWLINE: u8 = 10;
 const SEMICOLON: u8 = 59;
 
-fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], &[u8])) -> Option<usize> {
+fn parse_row(buf: &[u8], offset: usize, callback: &mut impl FnMut(&[u8], &[u8])) -> Option<usize> {
     let mut end_of_station = 0;
     let mut end_of_temperature = 0;
     let mut complete = false;
@@ -29,7 +32,7 @@ fn parse_row(buf: &[u8], offset: usize, f: &mut impl FnMut(&[u8], &[u8])) -> Opt
     }
 
     if complete {
-        f(
+        callback(
             &buf[offset..end_of_station],
             &buf[(end_of_station + 1)..end_of_temperature],
         );

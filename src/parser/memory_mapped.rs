@@ -2,27 +2,28 @@ use std::{fs::File, path::Path};
 
 use memmap::{Mmap, MmapOptions};
 
-use super::{parse_row, Parser};
+use super::{parse_row, CSVParser};
 
-pub struct MmapIterator {
-    pos: usize,
+/// Parses the CSV file using a memory mapped file.
+pub struct MemoryMappedParser {
+    offset: usize,
     mmap: Mmap,
 }
 
-impl MmapIterator {
+impl MemoryMappedParser {
     pub fn new(path: &Path) -> Self {
         let file = File::open(path).unwrap();
         let mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
-        Self { mmap, pos: 0 }
+        Self { mmap, offset: 0 }
     }
 }
 
-impl Parser for MmapIterator {
+impl CSVParser for MemoryMappedParser {
     fn parse(mut self, f: &mut impl FnMut(&[u8], &[u8])) {
         loop {
-            match parse_row(&self.mmap, self.pos, f) {
+            match parse_row(&self.mmap, self.offset, f) {
                 Some(count) => {
-                    self.pos += count;
+                    self.offset += count;
                 }
                 None => break,
             }
@@ -38,11 +39,11 @@ impl Parser for MmapIterator {
 mod test {
     use std::path::Path;
 
-    use crate::parser::{mmap_source::MmapIterator, test::Row, Parser};
+    use crate::parser::{memory_mapped::MemoryMappedParser, test::Row, CSVParser};
 
     #[test]
     fn test_mmap_iterator() {
-        let parser = MmapIterator::new(Path::new("./data/1-row.csv"));
+        let parser = MemoryMappedParser::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -61,7 +62,7 @@ mod test {
 
     #[test]
     fn test_mmap_3_rows() {
-        let parser = MmapIterator::new(Path::new("./data/3-rows.csv"));
+        let parser = MemoryMappedParser::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

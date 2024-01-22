@@ -1,14 +1,32 @@
-use analyzer::Analyzer;
 use clap::Parser;
 
-mod analyzer;
+mod processor;
 mod parser;
+
+use parser::{ChunkParser, MemoryMappedParser};
+use processor::SequentialProcessor;
+
+#[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq)]
+#[clap(rename_all = "kebab_case")]
+enum ParserType {
+    #[default]
+    Chunk,
+    MemoryMapped,
+}
+
+
+#[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq)]
+#[clap(rename_all = "kebab_case")]
+enum ProcessorType {
+    #[default]
+    Sequential,
+}
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// File to read.
+    /// The file to read.
     #[arg(short, long)]
     input: String,
 
@@ -16,9 +34,13 @@ struct Args {
     #[arg(short, long)]
     quiet: bool,
 
-    /// Don't print anything.
-    #[arg(short, long)]
-    method: String,
+    /// How the input CSV file is parsed into rows
+    #[arg(long)]
+    parser: ParserType,
+
+    /// How the CSV rows are processed.
+    #[arg(long)]
+    processor: ProcessorType,
 }
 
 fn main() {
@@ -31,13 +53,9 @@ fn main() {
         std::process::exit(1);
     }
 
-    let results = match args.method.as_str() {
-        "mmap" => Analyzer::<parser::mmap_source::MmapIterator>::new(path).collect(),
-        "fd" => Analyzer::<parser::fd_source::FdIterator>::new(path).collect(),
-        _ => {
-            eprintln!("invalid method: {}", args.method);
-            std::process::exit(1);
-        }
+    let results = match (args.processor, args.parser) {
+        (ProcessorType::Sequential, ParserType::Chunk) => SequentialProcessor::<ChunkParser>::new(path).collect(),
+        (ProcessorType::Sequential, ParserType::MemoryMapped) => SequentialProcessor::<MemoryMappedParser>::new(path).collect(),
     };
 
     if !args.quiet {
