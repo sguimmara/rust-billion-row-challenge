@@ -7,8 +7,8 @@ pub use crate::parser::chunked::ChunkParser;
 pub use crate::parser::memory_mapped::MemoryMappedParser;
 
 pub trait CSVParser {
-    fn parse(self, visitor: &mut impl FnMut(&[u8], &[u8]));
     fn new(path: &Path) -> Self;
+    fn parse(self, visitor: &mut impl FnMut(&[u8], &[u8]));
 }
 
 const NEWLINE: u8 = 10;

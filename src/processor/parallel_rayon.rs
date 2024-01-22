@@ -1,10 +1,18 @@
 use std::path::Path;
 
-use nohash::IntMap;
+use dashmap::DashMap;
+use rayon::iter::{ParallelDrainRange, ParallelIterator};
 
-use crate::parser::CSVParser;
+use crate::{parser::CSVParser, processor::hash_station_name};
 
-use super::{hash_station_name, Processor, Station};
+use super::{Processor, Station};
+
+const BUFFER_SIZE: usize = 4096;
+
+/// A parallel processor using Rayon
+pub struct ParallelRayonProcessor<P: CSVParser> {
+    parser: P,
+}
 
 struct Entry {
     min: f32,
@@ -15,46 +23,79 @@ struct Entry {
 }
 
 impl Entry {
-    pub fn new(temperature: f32, s: &[u8]) -> Self {
+    pub fn new(temperature: f32, s: &str) -> Self {
         Self {
             min: temperature,
             max: temperature,
             sum: temperature,
             count: 1,
-            name: String::from_utf8_lossy(s).to_string(),
+            name: s.to_string(),
         }
     }
 }
 
-/// A single-threaded, sequential processor.
-pub struct SequentialProcessor<P: CSVParser> {
-    parser: P,
+struct WorkBuffer {
+    queue: Vec<(String, String)>,
 }
 
-impl<P: CSVParser> Processor for SequentialProcessor<P> {
-    fn new(path: &Path) -> Self {
-        Self {
-            parser: P::new(path),
-        }
+impl Default for WorkBuffer {
+
+    fn default() -> Self {
+        Self { queue: Vec::with_capacity(BUFFER_SIZE) }
+    }
+}
+
+impl WorkBuffer {
+    fn is_full(&self) -> bool {
+        self.queue.len() == self.queue.capacity()
     }
 
-    fn process(self) -> Vec<Station> {
-        let mut map: IntMap<u64, Entry> = IntMap::default();
+    fn len(&self) -> usize {
+        self.queue.len()
+    }
 
-        self.parser.parse(&mut |station, t| {
-            let temperature = fast_float::parse(t).unwrap();
+    fn push(&mut self, name: String, temperature: String) {
+        self.queue.push((name, temperature));
+    }
 
-            let k = hash_station_name(station);
+    fn run(&mut self, map: &DashMap<u64, Entry>) {
+       self.queue
+        .par_drain(0..self.queue.len())
+        .for_each(|(n, t)| {
+            let k = hash_station_name(n.as_bytes());
+            let temperature: f32 = fast_float::parse(t).unwrap();
 
-            if let Some(v) = map.get_mut(&k) {
+            if let Some(mut v) = map.get_mut(&k) {
                 v.min = f32::min(v.min, temperature);
                 v.max = f32::max(v.max, temperature);
                 v.sum += temperature;
                 v.count += 1;
             } else {
-                map.insert(k, Entry::new(temperature, station));
+                map.insert(k, Entry::new(temperature, &n));
             }
         });
+    }
+}
+
+impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
+    fn process(self) -> Vec<super::Station> {
+        let mut work_buffer = WorkBuffer::default();
+        let map: DashMap<u64, Entry> = DashMap::with_capacity(10000);
+
+        self.parser.parse(&mut |name_row, temp_row| {
+            let name = String::from_utf8_lossy(name_row).to_string();
+            let temp = String::from_utf8_lossy(temp_row).to_string();
+
+            work_buffer.push(name, temp);
+
+            if work_buffer.is_full() {
+                work_buffer.run(&map);
+            }
+        });
+
+        if work_buffer.len() > 0 {
+            work_buffer.run(&map);
+        }
 
         let mut result = Vec::with_capacity(map.len());
 
@@ -74,6 +115,12 @@ impl<P: CSVParser> Processor for SequentialProcessor<P> {
 
         result
     }
+
+    fn new(path: &Path) -> Self {
+        Self {
+            parser: P::new(path),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -82,13 +129,13 @@ mod test {
 
     use crate::{parser::ChunkParser, processor::Processor};
 
-    use super::SequentialProcessor;
+    use super::ParallelRayonProcessor;
 
     #[test]
     fn test_1_row() {
-        let analyzer = SequentialProcessor::<ChunkParser>::new(Path::new("./data/1-row.csv"));
+        let processor = ParallelRayonProcessor::<ChunkParser>::new(Path::new("./data/1-row.csv"));
 
-        let results = analyzer.process();
+        let results = processor.process();
 
         assert_eq!(results.len(), 1);
 
@@ -100,7 +147,7 @@ mod test {
 
     #[test]
     fn test_3_rows() {
-        let analyzer = SequentialProcessor::<ChunkParser>::new(Path::new("./data/3-rows.csv"));
+        let analyzer = ParallelRayonProcessor::<ChunkParser>::new(Path::new("./data/3-rows.csv"));
 
         let results = analyzer.process();
 
@@ -139,7 +186,7 @@ mod test {
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        let analyzer = SequentialProcessor::<ChunkParser>::new(Path::new(
+        let analyzer = ParallelRayonProcessor::<ChunkParser>::new(Path::new(
             "./data/9-rows-duplicate-stations.csv",
         ));
 

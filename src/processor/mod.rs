@@ -1,5 +1,9 @@
+pub mod parallel_rayon;
 pub mod sequential;
 
+use std::path::Path;
+
+pub use crate::processor::parallel_rayon::ParallelRayonProcessor;
 pub use crate::processor::sequential::SequentialProcessor;
 
 fn hash_station_name(s: &[u8]) -> u64 {
@@ -32,5 +36,6 @@ impl Station {
 }
 
 pub trait Processor {
-    fn collect(self) -> Vec<Station>;
+    fn new(path: &Path) -> Self;
+    fn process(self) -> Vec<Station>;
 }

@@ -1,10 +1,10 @@
 use clap::Parser;
 
-mod processor;
 mod parser;
+mod processor;
 
 use parser::{ChunkParser, MemoryMappedParser};
-use processor::SequentialProcessor;
+use processor::{ParallelRayonProcessor, Processor, SequentialProcessor};
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq)]
 #[clap(rename_all = "kebab_case")]
@@ -14,12 +14,12 @@ enum ParserType {
     MemoryMapped,
 }
 
-
 #[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq)]
 #[clap(rename_all = "kebab_case")]
 enum ProcessorType {
     #[default]
     Sequential,
+    ParallelRayon,
 }
 
 /// Simple program to greet a person
@@ -53,8 +53,14 @@ fn main() {
     }
 
     let results = match (args.processor, args.parser) {
-        (ProcessorType::Sequential, ParserType::Chunk) => SequentialProcessor::<ChunkParser>::new(path).collect(),
-        (ProcessorType::Sequential, ParserType::MemoryMapped) => SequentialProcessor::<MemoryMappedParser>::new(path).collect(),
+        (ProcessorType::Sequential, ParserType::Chunk) => {
+            SequentialProcessor::<ChunkParser>::new(path).process()
+        }
+        (ProcessorType::Sequential, ParserType::MemoryMapped) => {
+            SequentialProcessor::<MemoryMappedParser>::new(path).process()
+        }
+        (ProcessorType::ParallelRayon, ParserType::Chunk) => ParallelRayonProcessor::<ChunkParser>::new(path).process(),
+        (ProcessorType::ParallelRayon, ParserType::MemoryMapped) => ParallelRayonProcessor::<MemoryMappedParser>::new(path).process(),
     };
 
     if !args.quiet {
