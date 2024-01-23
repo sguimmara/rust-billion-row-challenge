@@ -33,6 +33,10 @@ impl CSVParser for MemoryMappedParser {
     fn new(path: &Path) -> Self {
         Self::new(path)
     }
+
+    fn visit_row_at(&mut self, temp_buf: &mut [u8], offset: usize, visitor: &mut impl FnMut(&[u8], &[u8])) {
+        parse_row(&self.mmap, offset, visitor);
+    }
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@ pub trait CSVParser {
     fn new(path: &Path) -> Self;
     /// Applies the visitor callback on all rows in the file. This operation is zero-copy.
     fn visit_all_rows(&mut self, visitor: &mut impl FnMut(&[u8], &[u8]));
+    fn visit_row_at(&mut self, temp_buf: &mut [u8], offset: usize, visitor: &mut impl FnMut(&[u8], &[u8]));
 }
 
 /// ASCII code for newline

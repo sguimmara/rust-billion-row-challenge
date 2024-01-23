@@ -63,6 +63,11 @@ impl CSVParser for ChunkParser {
     fn new(path: &Path) -> Self {
         Self::new(path)
     }
+
+    fn visit_row_at(&mut self, temp_buf: &mut [u8], offset: usize, visitor: &mut impl FnMut(&[u8], &[u8])) {
+        self.fd.read_at(temp_buf, offset as u64).unwrap();
+        parse_row(&temp_buf, 0, visitor);
+    }
 }
 
 #[cfg(test)]
