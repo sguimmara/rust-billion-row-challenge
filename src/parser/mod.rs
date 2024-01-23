@@ -3,19 +3,46 @@ pub mod vectorized;
 
 pub use crate::parser::naive::NaiveRowParser;
 pub use crate::parser::vectorized::VectorizedRowParser;
+use crate::reader::RowBuffer;
 
 pub trait RowParser: Default {
+    fn seek_row(buf: &[u8], start: usize) -> Option<usize>;
+
     fn parse_row(
         buf: &[u8],
         start: usize,
         callback: &mut impl FnMut(&[u8], &[u8]),
     ) -> Option<usize>;
+
+    fn parse_row_buffer(buf: &RowBuffer, callback: &mut impl FnMut(&[u8], &[u8]));
 }
 
 /// ASCII code for newline
 const NEWLINE_CODE: u8 = 10;
 /// ASCII code for semicolon
 const SEMICOLON_CODE: u8 = 59;
+
+fn seek_row_naive(buf: &[u8], start: usize) -> Option<usize> {
+    let mut end_of_row = 0;
+    let mut complete = false;
+
+    for i in start..buf.len() {
+        match buf[i] {
+            NEWLINE_CODE => {
+                end_of_row = i;
+                complete = true;
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    if complete {
+        Some(end_of_row - start + 1)
+    } else {
+        None
+    }
+}
 
 fn parse_row_naive(
     buf: &[u8],
@@ -50,6 +77,18 @@ fn parse_row_naive(
     }
 }
 
+fn seek_row_vectorized(buf: &[u8], start: usize) -> Option<usize> {
+    let len = buf.len();
+
+    if let Some(newline_index) = memchr::memchr(NEWLINE_CODE, &buf[start..len]) {
+        let end_of_row = start + newline_index;
+
+        return Some(end_of_row - start + 1);
+    }
+
+    None
+}
+
 fn parse_row_vectorized(
     buf: &[u8],
     start: usize,
@@ -79,7 +118,7 @@ pub mod test {
     use std::path::Path;
 
     use crate::{
-        parser::{parse_row_naive, parse_row_vectorized},
+        parser::{parse_row_naive, parse_row_vectorized, seek_row_naive, seek_row_vectorized},
         processor::Processor,
     };
 
@@ -96,6 +135,25 @@ pub mod test {
                 temperature,
             }
         }
+    }
+
+    #[test]
+    fn test_seek_row_naive_1_row() {
+        test_seek_row_1_row(seek_row_naive);
+    }
+
+    #[test]
+    fn test_seek_row_vectorized_1_row() {
+        test_seek_row_1_row(seek_row_vectorized);
+    }
+
+    fn test_seek_row_1_row(f: fn(&[u8], usize) -> Option<usize>) {
+        let buf = "St. Petersburg;10.2\n";
+
+        let res = f(buf.as_bytes(), 0);
+
+        assert!(res.is_some());
+        assert_eq!(res.unwrap(), 20);
     }
 
     #[test]

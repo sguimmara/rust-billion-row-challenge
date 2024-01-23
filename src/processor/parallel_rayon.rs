@@ -3,15 +3,15 @@ use std::path::Path;
 use dashmap::DashMap;
 use rayon::iter::{ParallelDrainRange, ParallelIterator};
 
-use crate::{processor::hash_station_name, reader::CsvReader};
+use crate::{processor::hash_station_name, reader::SequentialCsvReader};
 
 use super::{Processor, Station};
 
 const BUFFER_SIZE: usize = 4096;
 
 /// A parallel processor using Rayon
-pub struct ParallelRayonProcessor<P: CsvReader> {
-    parser: P,
+pub struct ParallelRayonProcessor<R: SequentialCsvReader> {
+    reader: R,
 }
 
 struct Entry {
@@ -78,12 +78,12 @@ impl WorkBuffer {
     }
 }
 
-impl<P: CsvReader> Processor for ParallelRayonProcessor<P> {
+impl<P: SequentialCsvReader> Processor for ParallelRayonProcessor<P> {
     fn process(&mut self) -> Vec<super::Station> {
         let mut work_buffer = WorkBuffer::default();
         let map: DashMap<u64, Entry> = DashMap::with_capacity(10000);
 
-        self.parser.visit_all_rows(&mut |name_row, temp_row| {
+        self.reader.visit_all_rows(&mut |name_row, temp_row| {
             let name = String::from_utf8_lossy(name_row).to_string();
             let temp = String::from_utf8_lossy(temp_row).to_string();
 
@@ -119,7 +119,7 @@ impl<P: CsvReader> Processor for ParallelRayonProcessor<P> {
 
     fn new(path: &Path) -> Self {
         Self {
-            parser: P::new(path),
+            reader: P::new(path),
         }
     }
 }

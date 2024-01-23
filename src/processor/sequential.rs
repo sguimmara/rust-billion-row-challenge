@@ -4,7 +4,7 @@ use nohash::IntMap;
 
 use crate::{
     parser::naive::NaiveRowParser,
-    reader::{ChunkReader, CsvReader},
+    reader::{ChunkReader, SequentialCsvReader},
 };
 
 use super::{hash_station_name, Processor, Station};
@@ -30,11 +30,11 @@ impl Entry {
 }
 
 /// A single-threaded, sequential processor.
-pub struct SequentialProcessor<P: CsvReader = ChunkReader<NaiveRowParser>> {
+pub struct SequentialProcessor<P: SequentialCsvReader = ChunkReader<NaiveRowParser>> {
     parser: P,
 }
 
-impl<P: CsvReader> Processor for SequentialProcessor<P> {
+impl<P: SequentialCsvReader> Processor for SequentialProcessor<P> {
     fn new(path: &Path) -> Self {
         Self {
             parser: P::new(path),

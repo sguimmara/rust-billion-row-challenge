@@ -4,7 +4,7 @@ use memmap::{Mmap, MmapOptions};
 
 use crate::parser::RowParser;
 
-use super::CsvReader;
+use super::{BulkCsvReader, RowBuffer, SequentialCsvReader};
 
 /// Parses the CSV file using a memory mapped file.
 pub struct MemoryMappedReader<R>
@@ -28,7 +28,43 @@ impl<R: RowParser> MemoryMappedReader<R> {
     }
 }
 
-impl<R: RowParser> CsvReader for MemoryMappedReader<R> {
+const BULK_SIZE: usize = 64 * 1024 * 1024; // 64 MB
+
+impl<R: RowParser> Iterator for MemoryMappedReader<R> {
+    type Item = RowBuffer;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.offset;
+        let mut byte_count = 0;
+        let mut row_count = 0;
+
+        loop {
+            match R::seek_row(&self.mmap, self.offset) {
+                Some(count) => {
+                    self.offset += count;
+                    byte_count += count;
+                    row_count += 1;
+                    if byte_count >= BULK_SIZE {
+                        break;
+                    }
+                }
+                None => return None,
+            }
+        }
+
+        let buffer = RowBuffer::new(row_count, &self.mmap[start..start + byte_count]);
+
+        Some(buffer)
+    }
+}
+
+impl<R: RowParser> BulkCsvReader for MemoryMappedReader<R> {
+    fn new(path: &Path) -> Self {
+        Self::new(path)
+    }
+}
+
+impl<R: RowParser> SequentialCsvReader for MemoryMappedReader<R> {
     fn visit_all_rows(&mut self, f: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             match R::parse_row(&self.mmap, self.offset, f) {
@@ -51,7 +87,7 @@ mod test {
 
     use crate::{
         parser::{test::Row, NaiveRowParser},
-        reader::{CsvReader, MemoryMappedReader},
+        reader::{MemoryMappedReader, SequentialCsvReader},
     };
 
     #[test]

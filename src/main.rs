@@ -7,7 +7,10 @@ mod processor;
 mod reader;
 
 use parser::{NaiveRowParser, VectorizedRowParser};
-use processor::{NoopProcessor, ParallelRayonProcessor, Processor, SequentialProcessor, Station};
+use processor::{
+    NoopProcessor, ParallelBulkProcessor, ParallelRayonProcessor, Processor, SequentialProcessor,
+    Station,
+};
 use reader::{ChunkReader, MemoryMappedReader};
 
 #[derive(clap::ValueEnum, Copy, Clone, Default, Debug, PartialEq)]
@@ -32,6 +35,7 @@ enum ProcessorType {
     #[default]
     Sequential,
     ParallelRayon,
+    ParallelBulk,
     NoOp,
 }
 
@@ -93,6 +97,20 @@ fn run_with_no_op_processor(path: &Path, args: &Args) -> Vec<Station> {
     }
 }
 
+fn run_with_parallel_bulk_processor(path: &Path, args: &Args) -> Vec<Station> {
+    match args.parser {
+        ParserType::Naive => {
+            ParallelBulkProcessor::<NaiveRowParser, MemoryMappedReader<NaiveRowParser>>::new(path)
+                .process()
+        }
+        ParserType::Vectorized => ParallelBulkProcessor::<
+            VectorizedRowParser,
+            MemoryMappedReader<VectorizedRowParser>,
+        >::new(path)
+        .process(),
+    }
+}
+
 fn run_with_parallel_rayon_processor(path: &Path, args: &Args) -> Vec<Station> {
     match (args.parser, args.reader) {
         (ParserType::Naive, ReaderType::Chunk) => {
@@ -124,6 +142,7 @@ fn main() {
         ProcessorType::Sequential => run_with_sequential_processor(path, &args),
         ProcessorType::ParallelRayon => run_with_parallel_rayon_processor(path, &args),
         ProcessorType::NoOp => run_with_no_op_processor(path, &args),
+        ProcessorType::ParallelBulk => run_with_parallel_bulk_processor(path, &args),
     };
 
     if !args.quiet {

@@ -7,7 +7,7 @@ use std::{
 
 use crate::parser::{NaiveRowParser, RowParser};
 
-use super::CsvReader;
+use super::SequentialCsvReader;
 
 const CHUNK_SIZE: usize = 16384;
 
@@ -48,7 +48,7 @@ impl<R: RowParser> ChunkReader<R> {
     }
 }
 
-impl<R: RowParser> CsvReader for ChunkReader<R> {
+impl<R: RowParser> SequentialCsvReader for ChunkReader<R> {
     fn visit_all_rows(&mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
@@ -79,7 +79,7 @@ mod test {
 
     use crate::{
         parser::{test::Row, NaiveRowParser},
-        reader::{ChunkReader, CsvReader},
+        reader::{ChunkReader, SequentialCsvReader},
     };
 
     #[test]
