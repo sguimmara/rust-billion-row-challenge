@@ -1,5 +1,6 @@
 pub mod parallel_rayon;
 pub mod sequential;
+pub mod noop;
 
 use std::path::Path;
 

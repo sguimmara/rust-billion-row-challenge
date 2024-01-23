@@ -4,7 +4,7 @@ mod parser;
 mod processor;
 
 use parser::{ChunkParser, MemoryMappedParser};
-use processor::{ParallelRayonProcessor, Processor, SequentialProcessor};
+use processor::{noop::NoopProcessor, ParallelRayonProcessor, Processor, SequentialProcessor};
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq)]
 #[clap(rename_all = "kebab_case")]
@@ -20,6 +20,7 @@ enum ProcessorType {
     #[default]
     Sequential,
     ParallelRayon,
+    NoOp,
 }
 
 /// Simple program to greet a person
@@ -61,6 +62,8 @@ fn main() {
         }
         (ProcessorType::ParallelRayon, ParserType::Chunk) => ParallelRayonProcessor::<ChunkParser>::new(path).process(),
         (ProcessorType::ParallelRayon, ParserType::MemoryMapped) => ParallelRayonProcessor::<MemoryMappedParser>::new(path).process(),
+        (ProcessorType::NoOp, ParserType::Chunk) => NoopProcessor::<ChunkParser>::new(path).process(),
+        (ProcessorType::NoOp, ParserType::MemoryMapped) => NoopProcessor::<MemoryMappedParser>::new(path).process(),
     };
 
     if !args.quiet {
