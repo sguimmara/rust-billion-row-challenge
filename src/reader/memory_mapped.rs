@@ -1,27 +1,37 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, marker::PhantomData, path::Path};
 
 use memmap::{Mmap, MmapOptions};
 
-use super::{parse_row, CSVParser};
+use crate::parser::RowParser;
+
+use super::CsvReader;
 
 /// Parses the CSV file using a memory mapped file.
-pub struct MemoryMappedParser {
+pub struct MemoryMappedReader<R>
+where
+    R: RowParser,
+{
     offset: usize,
     mmap: Mmap,
+    marker: PhantomData<R>,
 }
 
-impl MemoryMappedParser {
+impl<R: RowParser> MemoryMappedReader<R> {
     pub fn new(path: &Path) -> Self {
         let file = File::open(path).unwrap();
         let mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
-        Self { mmap, offset: 0 }
+        Self {
+            mmap,
+            offset: 0,
+            marker: PhantomData,
+        }
     }
 }
 
-impl CSVParser for MemoryMappedParser {
+impl<R: RowParser> CsvReader for MemoryMappedReader<R> {
     fn visit_all_rows(&mut self, f: &mut impl FnMut(&[u8], &[u8])) {
         loop {
-            match parse_row(&self.mmap, self.offset, f) {
+            match R::parse_row(&self.mmap, self.offset, f) {
                 Some(count) => {
                     self.offset += count;
                 }
@@ -33,21 +43,20 @@ impl CSVParser for MemoryMappedParser {
     fn new(path: &Path) -> Self {
         Self::new(path)
     }
-
-    fn visit_row_at(&mut self, temp_buf: &mut [u8], offset: usize, visitor: &mut impl FnMut(&[u8], &[u8])) {
-        parse_row(&self.mmap, offset, visitor);
-    }
 }
 
 #[cfg(test)]
 mod test {
     use std::path::Path;
 
-    use crate::parser::{memory_mapped::MemoryMappedParser, test::Row, CSVParser};
+    use crate::{
+        parser::{test::Row, NaiveRowParser},
+        reader::{CsvReader, MemoryMappedReader},
+    };
 
     #[test]
     fn parse_1_row() {
-        let mut parser = MemoryMappedParser::new(Path::new("./data/1-row.csv"));
+        let mut parser = MemoryMappedReader::<NaiveRowParser>::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -66,7 +75,7 @@ mod test {
 
     #[test]
     fn parse_3_rows() {
-        let mut parser = MemoryMappedParser::new(Path::new("./data/3-rows.csv"));
+        let mut parser = MemoryMappedReader::<NaiveRowParser>::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

@@ -7,7 +7,8 @@ cargo test -q
 cargo build --release -q
 
 hyperfine --warmup 1 -N \
-          -L parser chunk,memory-mapped \
-          -L processor sequential,parallel-rayon \
-          "$BIN --parser {parser} --processor {processor} -q $FILE" \
+          -L reader chunk,memory-mapped \
+          -L parser naive,vectorized \
+          -L processor sequential,no-op \
+          "$BIN --reader {reader} --parser {parser} --processor {processor} -q $FILE" \
           --export-markdown results.md

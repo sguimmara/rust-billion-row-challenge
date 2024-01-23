@@ -3,14 +3,14 @@ use std::path::Path;
 use dashmap::DashMap;
 use rayon::iter::{ParallelDrainRange, ParallelIterator};
 
-use crate::{parser::CSVParser, processor::hash_station_name};
+use crate::{processor::hash_station_name, reader::CsvReader};
 
 use super::{Processor, Station};
 
 const BUFFER_SIZE: usize = 4096;
 
 /// A parallel processor using Rayon
-pub struct ParallelRayonProcessor<P: CSVParser> {
+pub struct ParallelRayonProcessor<P: CsvReader> {
     parser: P,
 }
 
@@ -39,9 +39,10 @@ struct WorkBuffer {
 }
 
 impl Default for WorkBuffer {
-
     fn default() -> Self {
-        Self { queue: Vec::with_capacity(BUFFER_SIZE) }
+        Self {
+            queue: Vec::with_capacity(BUFFER_SIZE),
+        }
     }
 }
 
@@ -59,25 +60,25 @@ impl WorkBuffer {
     }
 
     fn run(&mut self, map: &DashMap<u64, Entry>) {
-       self.queue
-        .par_drain(0..self.queue.len())
-        .for_each(|(n, t)| {
-            let k = hash_station_name(n.as_bytes());
-            let temperature: f32 = fast_float::parse(t).unwrap();
+        self.queue
+            .par_drain(0..self.queue.len())
+            .for_each(|(n, t)| {
+                let k = hash_station_name(n.as_bytes());
+                let temperature: f32 = fast_float::parse(t).unwrap();
 
-            if let Some(mut v) = map.get_mut(&k) {
-                v.min = f32::min(v.min, temperature);
-                v.max = f32::max(v.max, temperature);
-                v.sum += temperature;
-                v.count += 1;
-            } else {
-                map.insert(k, Entry::new(temperature, &n));
-            }
-        });
+                if let Some(mut v) = map.get_mut(&k) {
+                    v.min = f32::min(v.min, temperature);
+                    v.max = f32::max(v.max, temperature);
+                    v.sum += temperature;
+                    v.count += 1;
+                } else {
+                    map.insert(k, Entry::new(temperature, &n));
+                }
+            });
     }
 }
 
-impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
+impl<P: CsvReader> Processor for ParallelRayonProcessor<P> {
     fn process(&mut self) -> Vec<super::Station> {
         let mut work_buffer = WorkBuffer::default();
         let map: DashMap<u64, Entry> = DashMap::with_capacity(10000);
@@ -126,23 +127,23 @@ impl<P: CSVParser> Processor for ParallelRayonProcessor<P> {
 #[cfg(test)]
 mod test {
 
-    use crate::parser::ChunkParser;
     use crate::parser;
+    use crate::reader::ChunkReader;
 
     use super::ParallelRayonProcessor;
 
     #[test]
     fn test_1_row() {
-        parser::test::run_test_1_row::<ParallelRayonProcessor::<ChunkParser>>();
+        parser::test::run_test_1_row::<ParallelRayonProcessor<ChunkReader>>();
     }
 
     #[test]
     fn test_3_rows() {
-        parser::test::run_test_3_rows::<ParallelRayonProcessor::<ChunkParser>>();
+        parser::test::run_test_3_rows::<ParallelRayonProcessor<ChunkReader>>();
     }
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        parser::test::run_test_9_rows_duplicate_stations::<ParallelRayonProcessor::<ChunkParser>>();
+        parser::test::run_test_9_rows_duplicate_stations::<ParallelRayonProcessor<ChunkReader>>();
     }
 }

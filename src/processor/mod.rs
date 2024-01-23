@@ -1,9 +1,10 @@
+pub mod noop;
 pub mod parallel_rayon;
 pub mod sequential;
-pub mod noop;
 
 use std::path::Path;
 
+pub use crate::processor::noop::NoopProcessor;
 pub use crate::processor::parallel_rayon::ParallelRayonProcessor;
 pub use crate::processor::sequential::SequentialProcessor;
 

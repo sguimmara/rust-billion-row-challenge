@@ -1,23 +1,30 @@
 use std::{
     fs::File,
+    marker::PhantomData,
     os::unix::fs::{FileExt, MetadataExt},
     path::Path,
 };
 
-use super::{parse_row, CSVParser};
+use crate::parser::{NaiveRowParser, RowParser};
+
+use super::CsvReader;
 
 const CHUNK_SIZE: usize = 16384;
 
 /// A parser that reads the CSV in fixed size chunks.
-pub struct ChunkParser {
+pub struct ChunkReader<R = NaiveRowParser>
+where
+    R: RowParser,
+{
     offset: usize,
     fd: File,
     buf: [u8; CHUNK_SIZE],
     file_size: u64,
     buf_offset: usize,
+    marker: PhantomData<R>,
 }
 
-impl ChunkParser {
+impl<R: RowParser> ChunkReader<R> {
     pub fn new(path: &Path) -> Self {
         let fd = File::open(path).unwrap();
         let file_size = fd.metadata().unwrap().size();
@@ -28,6 +35,7 @@ impl ChunkParser {
             offset: 0,
             buf_offset: 0,
             buf: [0; CHUNK_SIZE],
+            marker: PhantomData,
         };
 
         res.fill_buffer();
@@ -40,14 +48,14 @@ impl ChunkParser {
     }
 }
 
-impl CSVParser for ChunkParser {
+impl<R: RowParser> CsvReader for ChunkReader<R> {
     fn visit_all_rows(&mut self, visitor: &mut impl FnMut(&[u8], &[u8])) {
         loop {
             if self.offset >= (self.file_size as usize) {
                 break;
             }
 
-            match parse_row(&self.buf, self.buf_offset, visitor) {
+            match R::parse_row(&self.buf, self.buf_offset, visitor) {
                 Some(count) => {
                     self.buf_offset += count;
                     self.offset += count;
@@ -63,22 +71,20 @@ impl CSVParser for ChunkParser {
     fn new(path: &Path) -> Self {
         Self::new(path)
     }
-
-    fn visit_row_at(&mut self, temp_buf: &mut [u8], offset: usize, visitor: &mut impl FnMut(&[u8], &[u8])) {
-        self.fd.read_at(temp_buf, offset as u64).unwrap();
-        parse_row(&temp_buf, 0, visitor);
-    }
 }
 
 #[cfg(test)]
 mod test {
     use std::path::Path;
 
-    use crate::parser::{chunked::ChunkParser, test::Row, CSVParser};
+    use crate::{
+        parser::{test::Row, NaiveRowParser},
+        reader::{ChunkReader, CsvReader},
+    };
 
     #[test]
     fn parse_1_row() {
-        let mut parser = ChunkParser::new(Path::new("./data/1-row.csv"));
+        let mut parser = ChunkReader::<NaiveRowParser>::new(Path::new("./data/1-row.csv"));
 
         let mut vec: Vec<Row> = Vec::with_capacity(1);
 
@@ -97,7 +103,7 @@ mod test {
 
     #[test]
     fn parse_3_rows() {
-        let mut parser = ChunkParser::new(Path::new("./data/3-rows.csv"));
+        let mut parser = ChunkReader::<NaiveRowParser>::new(Path::new("./data/3-rows.csv"));
 
         let mut rows: Vec<Row> = Vec::with_capacity(1);
 

@@ -2,7 +2,10 @@ use std::path::Path;
 
 use nohash::IntMap;
 
-use crate::parser::CSVParser;
+use crate::{
+    parser::naive::NaiveRowParser,
+    reader::{ChunkReader, CsvReader},
+};
 
 use super::{hash_station_name, Processor, Station};
 
@@ -27,11 +30,11 @@ impl Entry {
 }
 
 /// A single-threaded, sequential processor.
-pub struct SequentialProcessor<P: CSVParser> {
+pub struct SequentialProcessor<P: CsvReader = ChunkReader<NaiveRowParser>> {
     parser: P,
 }
 
-impl<P: CSVParser> Processor for SequentialProcessor<P> {
+impl<P: CsvReader> Processor for SequentialProcessor<P> {
     fn new(path: &Path) -> Self {
         Self {
             parser: P::new(path),
@@ -79,23 +82,22 @@ impl<P: CSVParser> Processor for SequentialProcessor<P> {
 #[cfg(test)]
 mod test {
 
-    use crate::parser::ChunkParser;
-    use crate::parser;
+    use crate::{parser, reader::ChunkReader};
 
     use super::SequentialProcessor;
 
     #[test]
     fn test_1_row() {
-        parser::test::run_test_1_row::<SequentialProcessor::<ChunkParser>>();
+        parser::test::run_test_1_row::<SequentialProcessor<ChunkReader>>();
     }
 
     #[test]
     fn test_3_rows() {
-        parser::test::run_test_3_rows::<SequentialProcessor::<ChunkParser>>();
+        parser::test::run_test_3_rows::<SequentialProcessor<ChunkReader>>();
     }
 
     #[test]
     fn test_9_rows_duplicate_stations() {
-        parser::test::run_test_9_rows_duplicate_stations::<SequentialProcessor::<ChunkParser>>();
+        parser::test::run_test_9_rows_duplicate_stations::<SequentialProcessor<ChunkReader>>();
     }
 }
