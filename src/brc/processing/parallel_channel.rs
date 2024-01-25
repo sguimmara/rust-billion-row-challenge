@@ -32,7 +32,7 @@ fn run_thread<R: Reader>(
 
     while let Ok(rows) = receiver.recv() {
         for (start, length) in rows {
-            if let Some(view) = reader.read_view(start, length as usize) {
+            if let Some(view) = reader.read_range(start, length as usize) {
                 let k = view.key();
                 let t = view.value();
 

@@ -9,29 +9,13 @@ use brc::{
 
 #[derive(clap::ValueEnum, Copy, Clone, Default, Debug, PartialEq)]
 #[clap(rename_all = "kebab_case")]
-enum ParserType {
-    #[default]
-    Naive,
-    Vectorized,
-}
-
-#[derive(clap::ValueEnum, Copy, Clone, Default, Debug, PartialEq)]
-#[clap(rename_all = "kebab_case")]
-enum ReaderType {
-    #[default]
-    Chunk,
-    MemoryMapped,
-}
-
-#[derive(clap::ValueEnum, Copy, Clone, Default, Debug, PartialEq)]
-#[clap(rename_all = "kebab_case")]
 enum ProcessorType {
     #[default]
     Sequential,
     ParallelChannel,
 }
 
-/// Simple program to greet a person
+/// CLI arguments.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -41,14 +25,8 @@ struct Args {
     /// Don't print anything.
     #[arg(short, long)]
     quiet: bool,
-    // /// How the input CSV file is parsed into rows
-    // #[arg(long)]
-    // reader: ReaderType,
 
-    // /// How the input CSV file is parsed into rows
-    // #[arg(long)]
-    // parser: ParserType,
-    /// How the CSV rows are processed.
+    /// The type of processor to use.
     #[arg(long)]
     processor: ProcessorType,
 }

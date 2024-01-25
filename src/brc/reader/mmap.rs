@@ -31,7 +31,7 @@ impl Reader for MmapReader {
         }
     }
 
-    fn read_view(&self, start: usize, length: usize) -> Option<RowView> {
+    fn read_range(&self, start: usize, length: usize) -> Option<RowView> {
         Some(RowView::new(
             &self.mmap[start..start + length],
             start,
