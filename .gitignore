@@ -16,6 +16,8 @@ Cargo.lock
 .DS_Store
 flamegraph.svg
 results.md
+perf.data*
+data/benchmark
 
 # Added by cargo
 

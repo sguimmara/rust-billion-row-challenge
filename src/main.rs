@@ -1,17 +1,14 @@
-use std::path::Path;
-
 use clap::Parser;
 
+mod new;
 mod parser;
 mod processor;
 mod reader;
 
-use parser::{NaiveRowParser, VectorizedRowParser};
-use processor::{
-    NoopProcessor, ParallelBulkProcessor, ParallelRayonProcessor, Processor, SequentialProcessor,
-    Station,
+use new::{
+    processing::{Processor, Sequential},
+    reader::{mmap::MmapReader, Reader},
 };
-use reader::{ChunkReader, MemoryMappedReader};
 
 #[derive(clap::ValueEnum, Copy, Clone, Default, Debug, PartialEq)]
 #[clap(rename_all = "kebab_case")]
@@ -50,83 +47,83 @@ struct Args {
     #[arg(short, long)]
     quiet: bool,
 
-    /// How the input CSV file is parsed into rows
-    #[arg(long)]
-    reader: ReaderType,
+    // /// How the input CSV file is parsed into rows
+    // #[arg(long)]
+    // reader: ReaderType,
 
-    /// How the input CSV file is parsed into rows
-    #[arg(long)]
-    parser: ParserType,
+    // /// How the input CSV file is parsed into rows
+    // #[arg(long)]
+    // parser: ParserType,
 
-    /// How the CSV rows are processed.
-    #[arg(long)]
-    processor: ProcessorType,
+    // /// How the CSV rows are processed.
+    // #[arg(long)]
+    // processor: ProcessorType,
 }
 
-fn run_with_sequential_processor(path: &Path, args: &Args) -> Vec<Station> {
-    match (args.parser, args.reader) {
-        (ParserType::Naive, ReaderType::Chunk) => {
-            SequentialProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Naive, ReaderType::MemoryMapped) => {
-            SequentialProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::Chunk) => {
-            SequentialProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::MemoryMapped) => {
-            SequentialProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
-        }
-    }
-}
+// fn run_with_sequential_processor(path: &Path, args: &Args) -> Vec<Station> {
+//     match (args.parser, args.reader) {
+//         (ParserType::Naive, ReaderType::Chunk) => {
+//             SequentialProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Naive, ReaderType::MemoryMapped) => {
+//             SequentialProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::Chunk) => {
+//             SequentialProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::MemoryMapped) => {
+//             SequentialProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
+//         }
+//     }
+// }
 
-fn run_with_no_op_processor(path: &Path, args: &Args) -> Vec<Station> {
-    match (args.parser, args.reader) {
-        (ParserType::Naive, ReaderType::Chunk) => {
-            NoopProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Naive, ReaderType::MemoryMapped) => {
-            NoopProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::Chunk) => {
-            NoopProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::MemoryMapped) => {
-            NoopProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
-        }
-    }
-}
+// fn run_with_no_op_processor(path: &Path, args: &Args) -> Vec<Station> {
+//     match (args.parser, args.reader) {
+//         (ParserType::Naive, ReaderType::Chunk) => {
+//             NoopProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Naive, ReaderType::MemoryMapped) => {
+//             NoopProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::Chunk) => {
+//             NoopProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::MemoryMapped) => {
+//             NoopProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
+//         }
+//     }
+// }
 
-fn run_with_parallel_bulk_processor(path: &Path, args: &Args) -> Vec<Station> {
-    match args.parser {
-        ParserType::Naive => {
-            ParallelBulkProcessor::<NaiveRowParser, MemoryMappedReader<NaiveRowParser>>::new(path)
-                .process()
-        }
-        ParserType::Vectorized => ParallelBulkProcessor::<
-            VectorizedRowParser,
-            MemoryMappedReader<VectorizedRowParser>,
-        >::new(path)
-        .process(),
-    }
-}
+// fn run_with_parallel_bulk_processor(path: &Path, args: &Args) -> Vec<Station> {
+//     match args.parser {
+//         ParserType::Naive => {
+//             ParallelBulkProcessor::<NaiveRowParser, MemoryMappedReader<NaiveRowParser>>::new(path)
+//                 .process()
+//         }
+//         ParserType::Vectorized => ParallelBulkProcessor::<
+//             VectorizedRowParser,
+//             MemoryMappedReader<VectorizedRowParser>,
+//         >::new(path)
+//         .process(),
+//     }
+// }
 
-fn run_with_parallel_rayon_processor(path: &Path, args: &Args) -> Vec<Station> {
-    match (args.parser, args.reader) {
-        (ParserType::Naive, ReaderType::Chunk) => {
-            ParallelRayonProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Naive, ReaderType::MemoryMapped) => {
-            ParallelRayonProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::Chunk) => {
-            ParallelRayonProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
-        }
-        (ParserType::Vectorized, ReaderType::MemoryMapped) => {
-            ParallelRayonProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
-        }
-    }
-}
+// fn run_with_parallel_rayon_processor(path: &Path, args: &Args) -> Vec<Station> {
+//     match (args.parser, args.reader) {
+//         (ParserType::Naive, ReaderType::Chunk) => {
+//             ParallelRayonProcessor::<ChunkReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Naive, ReaderType::MemoryMapped) => {
+//             ParallelRayonProcessor::<MemoryMappedReader<NaiveRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::Chunk) => {
+//             ParallelRayonProcessor::<ChunkReader<VectorizedRowParser>>::new(path).process()
+//         }
+//         (ParserType::Vectorized, ReaderType::MemoryMapped) => {
+//             ParallelRayonProcessor::<MemoryMappedReader<VectorizedRowParser>>::new(path).process()
+//         }
+//     }
+// }
 
 fn main() {
     let args = Args::parse();
@@ -138,12 +135,15 @@ fn main() {
         std::process::exit(1);
     }
 
-    let results = match args.processor {
-        ProcessorType::Sequential => run_with_sequential_processor(path, &args),
-        ProcessorType::ParallelRayon => run_with_parallel_rayon_processor(path, &args),
-        ProcessorType::NoOp => run_with_no_op_processor(path, &args),
-        ProcessorType::ParallelBulk => run_with_parallel_bulk_processor(path, &args),
-    };
+    // let results = match args.processor {
+    //     ProcessorType::Sequential => run_with_sequential_processor(path, &args),
+    //     ProcessorType::ParallelRayon => run_with_parallel_rayon_processor(path, &args),
+    //     ProcessorType::NoOp => run_with_no_op_processor(path, &args),
+    //     ProcessorType::ParallelBulk => run_with_parallel_bulk_processor(path, &args),
+    // };
+
+    let mut processor = Sequential::new(MmapReader::new(path));
+    let results = processor.process();
 
     if !args.quiet {
         print!("{{");

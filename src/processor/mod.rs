@@ -12,7 +12,6 @@ pub use crate::processor::sequential::SequentialProcessor;
 
 fn hash_station_name(s: &[u8]) -> u64 {
     let mut result: u64 = 23;
-    // h.write_usize(s.len());
     for i in 0..s.len() {
         result += 23 * (s[i] as u64);
     }
